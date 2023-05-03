@@ -1,0 +1,10 @@
+# conda environment named tripod using the latest version of python
+name: tripod
+dependencies:
+  - pip
+  - pip:
+    - lightning
+    - matplotlib
+    - torch
+    - torchvision
+  - python
