@@ -3,9 +3,10 @@ from cnn import Cnn
 import lightning as L
 from lightning.pytorch import loggers
 from matplotlib import pyplot as plt
-from unet import UNet
-from lightning.pytorch.callbacks.early_stopping import EarlyStopping
+from unet import PoolingStrategy, UNet
 import torch
+
+torch.set_float32_matmul_precision("medium")
 
 # load data and model
 d = BlurredMNIST(batch_size_train=4, batch_size_test=16, dataset="flowers")
@@ -18,13 +19,12 @@ show(b)
 #     "./lightning_logs/version_0/checkpoints/1epoch.ckpt").cpu()
 
 # train
-u = UNet(in_channels=3, out_channels=3)
+u = UNet(loss_fn=torch.nn.MSELoss(), pooling_strategy=PoolingStrategy.conv)
 trainer = L.Trainer(
-    accelerator="mps",
-    max_epochs=1,
-    # max_steps=100,
-    logger=loggers.CSVLogger(save_dir="./", version=0),
-    # log_every_n_steps=1,
+    accelerator="auto",
+    max_epochs=3,
+    logger=loggers.CSVLogger(save_dir="./", version=1),
+    precision="16-mixed",
 )
 trainer.fit(model=u, datamodule=d)
 trainer.test(model=u, datamodule=d)

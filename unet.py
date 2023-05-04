@@ -3,16 +3,30 @@ import lightning as L
 import torch
 from torch import Tensor
 from torch import nn
-from typing import *
+from typing import Callable, List
 import torchvision.transforms.functional
+from enum import Enum, auto
+
+
+class PoolingStrategy(Enum):
+    max = auto()
+    conv = auto()
+    stride = auto()
 
 
 class DoubleConv(nn.Module):
 
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 halven: bool = False):
         super().__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels,
+                      out_channels,
+                      kernel_size=3,
+                      padding=1,
+                      stride=2 if halven else 1),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
@@ -49,28 +63,51 @@ class Upscale(nn.Module):
 
 class Downscale(nn.Module):
 
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        pooling_strategy: PoolingStrategy,
+    ):
         super().__init__()
+        self.pooling_strategy: PoolingStrategy = pooling_strategy
+        halven = pooling_strategy == PoolingStrategy.stride
         self.maxpool = nn.MaxPool2d(2)
-        self.double_conv = DoubleConv(in_channels, out_channels)
+        self.downconv = nn.Conv2d(in_channels,
+                                  in_channels,
+                                  kernel_size=2,
+                                  stride=2)
+
+        self.double_conv = DoubleConv(in_channels, out_channels, halven)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.maxpool(x)
+        if self.pooling_strategy == PoolingStrategy.max:
+            x = self.maxpool(x)
+        elif self.pooling_strategy == PoolingStrategy.conv:
+            x = self.downconv(x)
+
         x = self.double_conv(x)
         return x
 
 
 class UNet(L.LightningModule):
 
-    def __init__(self, in_channels: int = 1, out_channels: int = 1):
+    def __init__(self,
+                 loss_fn: Callable,
+                 pooling_strategy: PoolingStrategy,
+                 in_channels: int = 3,
+                 out_channels: int = 3):
         super().__init__()
+
+        self.pooling_strategy: PoolingStrategy = pooling_strategy
+        self.loss_fn: Callable = loss_fn
 
         # encoder
         self.input_conv = DoubleConv(in_channels, 64)
-        self.downscale1 = Downscale(64, 128)
-        self.downscale2 = Downscale(128, 256)
-        self.downscale3 = Downscale(256, 512)
-        self.downscale4 = Downscale(512, 1024)
+        self.downscale1 = Downscale(64, 128, self.pooling_strategy)
+        self.downscale2 = Downscale(128, 256, self.pooling_strategy)
+        self.downscale3 = Downscale(256, 512, self.pooling_strategy)
+        self.downscale4 = Downscale(512, 1024, self.pooling_strategy)
 
         # decoder
         self.upscale1 = Upscale(1024, 512)
@@ -78,8 +115,10 @@ class UNet(L.LightningModule):
         self.upscale3 = Upscale(256, 128)
         self.upscale4 = Upscale(128, 64)
         self.output_conv = nn.Conv2d(64, out_channels, kernel_size=1)
+        self.bn = nn.BatchNorm2d(out_channels)
 
-        self.loss_fn = nn.BCEWithLogitsLoss()
+        self.save_hyperparameters(
+            ignore=["in_channels", "out_channels", "loss_fn"])
 
     def forward(self, x: Tensor) -> Tensor:
         # encode
@@ -95,24 +134,27 @@ class UNet(L.LightningModule):
         x = self.upscale3(x, x2)
         x = self.upscale4(x, x1)
         x = self.output_conv(x)
+        x = self.bn(x)
         return x
 
-    def training_step(self, batch: Tuple[Tensor, Tensor],
-                      batch_idx: int) -> Tensor:
-        x, y = batch
-        logits = self(x)
-        prediction = torch.sigmoid(logits)
-
-        loss = self.loss_fn(prediction, y)
-        self.log("train_loss", loss, prog_bar=True)
+    def training_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:
+        loss = self._shared_step(batch, "train")
         return loss
 
-    def test_step(self, batch: Tuple[Tensor, Tensor], batch_idx: int) -> Tensor:
+    def test_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:
+        loss = self._shared_step(batch, "test")
+        return loss
+
+    def validation_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:
+        loss = self._shared_step(batch, "eval")
+        return loss
+
+    def _shared_step(self, batch: List[Tensor], prefix: str) -> Tensor:
         x, y = batch
         logits = self(x)
         prediction = torch.sigmoid(logits)
         loss = self.loss_fn(prediction, y)
-        self.log("test_loss", loss, prog_bar=True)
+        self.log(f"{prefix}_loss", loss, prog_bar=True)
         return loss
 
     def configure_optimizers(self) -> Any:

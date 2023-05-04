@@ -3,8 +3,10 @@ name: tripod
 dependencies:
   - pip
   - pip:
+    - ipykernel
     - lightning
     - matplotlib
+    - scipy
     - torch
     - torchvision
   - python

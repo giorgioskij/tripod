@@ -1,14 +1,14 @@
 from pathlib import Path
 
 import lightning as L
+from lightning.pytorch.utilities.types import EVAL_DATALOADERS
 import torch.utils.data
 from matplotlib import pyplot as plt
 from torch import nn
 from torchvision import transforms as T
 from torchvision.datasets import MNIST, Flowers102
-import torchvision.datasets
 import torchvision
-from typing import *
+from typing import Any, Callable, List, Optional, Tuple
 from PIL import Image
 from torch import Tensor
 
@@ -111,6 +111,13 @@ class BlurredMNIST(L.LightningDataModule):
                 transform=sample_transform,
                 target_transform=target_transform,
             )
+            self.val = CustomFlowers(
+                "./data",
+                download=True,
+                split="val",
+                transform=sample_transform,
+                target_transform=target_transform,
+            )
             self.test = CustomFlowers(
                 "./data",
                 download=True,
@@ -131,6 +138,12 @@ class BlurredMNIST(L.LightningDataModule):
         return torch.utils.data.DataLoader(self.train,
                                            batch_size=batch_size,
                                            shuffle=True,
+                                           num_workers=0)
+
+    def val_dataloader(self):
+        return torch.utils.data.DataLoader(self.val,
+                                           batch_size=self.batch_size_test,
+                                           shuffle=False,
                                            num_workers=0)
 
     def test_dataloader(self, batch_size=None):
