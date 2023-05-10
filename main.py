@@ -5,6 +5,8 @@ from lightning.pytorch import loggers
 from matplotlib import pyplot as plt
 from unet import PoolingStrategy, UNet
 import torch
+from lightning.pytorch.callbacks import ModelCheckpoint
+from pathlib import Path
 
 torch.set_float32_matmul_precision("medium")
 
@@ -16,16 +18,19 @@ b = d.demo_batch()
 show(b)
 
 # u = UNet.load_from_checkpoint(
-#     "./lightning_logs/version_0/checkpoints/1epoch.ckpt").cpu()
+#     "./lightning_logs/version_1/checkpoints/epoch=1-step=510.ckpt").cpu()
 
 # train
 u = UNet(loss_fn=torch.nn.MSELoss(), pooling_strategy=PoolingStrategy.conv)
-trainer = L.Trainer(
-    accelerator="auto",
-    max_epochs=3,
-    logger=loggers.CSVLogger(save_dir="./", version=1),
-    precision="16-mixed",
-)
+
+ckp_callback = ModelCheckpoint(save_top_k=3,
+                               monitor="val_loss",
+                               every_n_epochs=10)
+trainer = L.Trainer(accelerator="auto",
+                    max_epochs=10,
+                    logger=loggers.CSVLogger(save_dir="./", version=2),
+                    precision="16-mixed",
+                    callbacks=[ckp_callback])
 trainer.fit(model=u, datamodule=d)
 trainer.test(model=u, datamodule=d)
 
@@ -34,8 +39,12 @@ test_batch = d.demo_batch(train=True)
 output = u(test_batch[0].to(u.device))
 output = torch.sigmoid(output)
 
-show(test_batch)
-show(output)
+# p = Path("./") / "outputs/version1/"
+# p.mkdir(parents=True)
+
+output_path = Path("./") / "outputs/version2/batch1"
+show(test_batch, output_path)
+show(output, output_path)
 
 
 def check_worst_case():

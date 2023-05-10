@@ -11,6 +11,7 @@ import torchvision
 from typing import Any, Callable, List, Optional, Tuple
 from PIL import Image
 from torch import Tensor
+import os
 
 
 class CustomMNIST(MNIST):
@@ -187,24 +188,40 @@ def tensor_to_image(t: Tensor):
     return t.detach().cpu().permute(1, 2, 0).numpy()
 
 
-def show(b: Tuple | List | Tensor) -> None:
+def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
+   
     # two batches of images
     if (isinstance(b, tuple) or
             isinstance(b, list)) and len(b) == 2 and isinstance(
                 b[0], Tensor) and isinstance(b[1], Tensor):
-        show(b[0])
-        show(b[1])
+        
+        if save_path is not None:
+            show(b[0], save_path / "transformed")
+            show(b[1], save_path / "original")
+        else:
+            show(b[0])
+            show(b[1])
 
     # single image
     elif isinstance(b, Tensor) and len(b.shape) == 3:
-        plt.imshow(tensor_to_image(b), cmap="gray")
+        im = tensor_to_image(b)
+        if save_path is not None:
+            if not save_path.exists():
+                save_path.mkdir(parents = True)
+            plt.imsave(str(save_path / "output.png"), im)
+        plt.imshow(im, cmap="gray")
         plt.show()
 
     # batch of images
     elif isinstance(b, Tensor) and len(b.shape) == 4:
         f, ax = plt.subplots(1, len(b))
         for i, img in enumerate(b):
-            ax[i].imshow(tensor_to_image(img), cmap="gray")
+            img = tensor_to_image(img)
+            if save_path is not None:
+                if not save_path.exists():
+                    save_path.mkdir(parents=True)
+                plt.imsave(str(save_path / f"output{i}.png"), img)
+            ax[i].imshow(img, cmap="gray")
         plt.show()
 
     else:

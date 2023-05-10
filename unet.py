@@ -146,7 +146,7 @@ class UNet(L.LightningModule):
         return loss
 
     def validation_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:
-        loss = self._shared_step(batch, "eval")
+        loss = self._shared_step(batch, "val")
         return loss
 
     def _shared_step(self, batch: List[Tensor], prefix: str) -> Tensor:
