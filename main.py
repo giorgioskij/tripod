@@ -11,7 +11,6 @@ from res_unet import UResNet
 import warnings
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
-
 torch.set_float32_matmul_precision("medium")
 
 # load data and model
