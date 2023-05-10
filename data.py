@@ -51,7 +51,7 @@ class CustomFlowers(Flowers102):
         return image, target
 
 
-class BlurredMNIST(L.LightningDataModule):
+class SuperDataModule(L.LightningDataModule):
 
     def __init__(
         self,
@@ -96,12 +96,12 @@ class BlurredMNIST(L.LightningDataModule):
 
         elif self.dataset.lower() == "flowers":
             sample_transform = T.Compose([
-                T.Resize((400, 400)),
+                T.Resize((416, 416)),
                 T.GaussianBlur(9, sigma=(1, 5)),
                 T.ToTensor(),
             ])
             target_transform = T.Compose([
-                T.Resize((400, 400)),
+                T.Resize((416, 416)),
                 T.ToTensor(),
             ])
             self.train = CustomFlowers(

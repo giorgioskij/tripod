@@ -5,7 +5,17 @@ from torch import Tensor
 from torch import nn
 from typing import Callable, List
 import torchvision.transforms.functional
+from torchinfo import summary
+from torchvision import models
+import segmentation_models_pytorch as smp
 from enum import Enum, auto
+
+# res = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
+# summary(res)
+u = smp.Unet(encoder_name="resnet34",
+             encoder_weights=None,
+             in_channels=3,
+             classes=3)
 
 
 class PoolingStrategy(Enum):

@@ -4,9 +4,12 @@ dependencies:
   - pip
   - pip:
     - ipykernel
+    - ipywidgets
     - lightning
     - matplotlib
     - scipy
+    - segmentation-models-pytorch
     - torch
+    - torchinfo
     - torchvision
-  - python
+  - python=3.10

@@ -1,31 +1,43 @@
-from data import BlurredMNIST, show
+from data import SuperDataModule, show
 from cnn import Cnn
 import lightning as L
 from lightning.pytorch import loggers
 from matplotlib import pyplot as plt
 from unet import PoolingStrategy, UNet
 import torch
+from res_unet import UResNet
+import warnings
+
+warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 torch.set_float32_matmul_precision("medium")
 
 # load data and model
-d = BlurredMNIST(batch_size_train=4, batch_size_test=16, dataset="flowers")
+d = SuperDataModule(batch_size_train=4, batch_size_test=16, dataset="flowers")
 d.setup()
 
 b = d.demo_batch()
 show(b)
+u = UResNet(loss_fn=torch.nn.MSELoss(), pretrained=True)
 
-# u = UNet.load_from_checkpoint(
-#     "./lightning_logs/version_0/checkpoints/1epoch.ckpt").cpu()
-
-# train
-u = UNet(loss_fn=torch.nn.MSELoss(), pooling_strategy=PoolingStrategy.conv)
 trainer = L.Trainer(
     accelerator="auto",
     max_epochs=3,
-    logger=loggers.CSVLogger(save_dir="./", version=1),
+    logger=loggers.CSVLogger(save_dir="./", version=2),
     precision="16-mixed",
 )
+
+# u = UNet.load_from_checkpoint(
+#     "./lightning_logs/version_0/checkpoints/1epoch.ckpt").cpu()
+# u = UNet(loss_fn=torch.nn.MSELoss(), pooling_strategy=PoolingStrategy.conv)
+# trainer = L.Trainer(
+#     accelerator="auto",
+#     max_epochs=3,
+#     logger=loggers.CSVLogger(save_dir="./", version=1),
+#     precision="16-mixed",
+# )
+
+# train
 trainer.fit(model=u, datamodule=d)
 trainer.test(model=u, datamodule=d)
 
