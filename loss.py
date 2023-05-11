@@ -12,6 +12,7 @@ class TripodLoss(nn.Module):
         super().__init__()
         # self.ssim = SSIM(data_range=1, nonnegative_ssim=True)
         self.mae = nn.L1Loss()
+        self.mse = nn.MSELoss()
 
         self.vgg = models.vgg16(
             weights=models.VGG16_Weights.IMAGENET1K_FEATURES).features
@@ -26,7 +27,7 @@ class TripodLoss(nn.Module):
         x_vgg = self.vgg(X)
         feature_loss = self.mae(x_vgg, target_vgg)
 
-        pixel_loss = self.mae(X, Y)  # pixel loss
+        pixel_loss = self.mse(X, Y)  # pixel loss
 
         # ssim_loss = self.ssim(X, Y.to(X.dtype))  # ssim loss
 

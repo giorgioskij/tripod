@@ -58,13 +58,14 @@ class Upscale(nn.Module):
         self.bilinear = bilinear
 
         if self.bilinear:
-            self.upconv = nn.Sequential(
-                nn.UpsamplingBilinear2d(scale_factor=2),
-                nn.ConvTranspose2d(in_channels,
-                                   in_channels // 2,
-                                   kernel_size=2,
-                                   stride=1),
-            )
+            # self.upconv = nn.Sequential(
+            #     nn.UpsamplingBilinear2d(scale_factor=2),
+            #     nn.ConvTranspose2d(in_channels,
+            #                        in_channels // 2,
+            #                        kernel_size=2,
+            #                        stride=1),
+            # )
+            self.upconv = nn.UpsamplingBilinear2d(scale_factor=2)
         else:
             self.upconv = nn.ConvTranspose2d(in_channels,
                                              in_channels // 2,

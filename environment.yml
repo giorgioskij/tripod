@@ -10,6 +10,7 @@ dependencies:
     - matplotlib
     - pytorch-msssim
     - scipy
+    - scikit-image
     - segmentation-models-pytorch
     - torch
     - torchinfo

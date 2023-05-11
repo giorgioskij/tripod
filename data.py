@@ -57,7 +57,7 @@ class SuperDataModule(L.LightningDataModule):
     def __init__(
         self,
         dataset: str = "MNIST",
-        data_dir: Path = Path("./data"),
+        data_dir: Path = Path("./datasets"),
         batch_size_train: int = 32,
         batch_size_test: int = 256,
     ):

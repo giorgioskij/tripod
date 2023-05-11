@@ -40,11 +40,13 @@ show(b)
 # )
 
 # classic encoder
-u = UNet(loss_fn=TripodLoss(), pooling_strategy=PoolingStrategy.conv)
+u = UNet(loss_fn=TripodLoss(),
+         pooling_strategy=PoolingStrategy.conv,
+         bilinear_upsampling=True)
 trainer = L.Trainer(
     accelerator="auto",
     max_epochs=3,
-    logger=loggers.CSVLogger(save_dir="./", version=1),
+    logger=loggers.CSVLogger(save_dir="./", version=3),
     precision="16-mixed",
 )
 
@@ -56,14 +58,14 @@ trainer.fit(model=u, datamodule=d)
 trainer.test(model=u, datamodule=d)
 
 # demo
-test_batch = d.demo_batch(train=True)
+test_batch = d.demo_batch(train=False)
 output = u(test_batch[0].to(u.device))
 output = torch.sigmoid(output)
 show(test_batch)
 show(output)
 
 # save output
-output_path = Path("./") / "outputs/features_loss/batch1"
+output_path = Path("./") / "outputs/bilinear_tripodloss/batch1"
 show(test_batch, output_path)
 show(output, output_path)
 
