@@ -165,7 +165,7 @@ class SuperDataModule(L.LightningDataModule):
         if train:
             return next(self.trainloader_iter)
         else:
-            return next(iter(self.testloader_iter))
+            return next(self.testloader_iter)
 
 
 def display_batch(b, predictions=None, max_images=4):
@@ -189,12 +189,12 @@ def tensor_to_image(t: Tensor):
 
 
 def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
-   
+
     # two batches of images
     if (isinstance(b, tuple) or
             isinstance(b, list)) and len(b) == 2 and isinstance(
                 b[0], Tensor) and isinstance(b[1], Tensor):
-        
+
         if save_path is not None:
             show(b[0], save_path / "transformed")
             show(b[1], save_path / "original")
@@ -207,7 +207,7 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
         im = tensor_to_image(b)
         if save_path is not None:
             if not save_path.exists():
-                save_path.mkdir(parents = True)
+                save_path.mkdir(parents=True)
             plt.imsave(str(save_path / "output.png"), im)
         plt.imshow(im, cmap="gray")
         plt.show()

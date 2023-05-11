@@ -9,34 +9,47 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from pathlib import Path
 from res_unet import UResNet
 import warnings
+from pytorch_msssim import SSIM
+from loss import TripodLoss
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
+warnings.filterwarnings("ignore", ".*full_state_update.*")
 torch.set_float32_matmul_precision("medium")
 
 # load data and model
-d = SuperDataModule(batch_size_train=4, batch_size_test=16, dataset="flowers")
+d: SuperDataModule = SuperDataModule(batch_size_train=4,
+                                     batch_size_test=16,
+                                     dataset="flowers")
 d.setup()
 
 b = d.demo_batch()
 show(b)
-u = UResNet(loss_fn=torch.nn.MSELoss(), pretrained=True)
 
+# ResNet encoder
+# u = UResNet(
+#     # loss_fn=SSIM(data_range=1, size_average=True, nonnegative_ssim=True),
+#     # loss_fn=torch.nn.MSELoss(),
+#     loss_fn=TripodLoss(),
+#     pretrained=True,
+# )
+# trainer = L.Trainer(
+#     accelerator="auto",
+#     max_epochs=3,
+#     logger=loggers.CSVLogger(save_dir="./", version=2),
+#     precision="16-mixed",
+# )
+
+# classic encoder
+u = UNet(loss_fn=TripodLoss(), pooling_strategy=PoolingStrategy.conv)
 trainer = L.Trainer(
     accelerator="auto",
     max_epochs=3,
-    logger=loggers.CSVLogger(save_dir="./", version=2),
+    logger=loggers.CSVLogger(save_dir="./", version=1),
     precision="16-mixed",
 )
 
 # u = UNet.load_from_checkpoint(
 #     "./lightning_logs/version_0/checkpoints/1epoch.ckpt").cpu()
-# u = UNet(loss_fn=torch.nn.MSELoss(), pooling_strategy=PoolingStrategy.conv)
-# trainer = L.Trainer(
-#     accelerator="auto",
-#     max_epochs=3,
-#     logger=loggers.CSVLogger(save_dir="./", version=1),
-#     precision="16-mixed",
-# )
 
 # train
 trainer.fit(model=u, datamodule=d)
@@ -46,11 +59,11 @@ trainer.test(model=u, datamodule=d)
 test_batch = d.demo_batch(train=True)
 output = u(test_batch[0].to(u.device))
 output = torch.sigmoid(output)
+show(test_batch)
+show(output)
 
-# p = Path("./") / "outputs/version1/"
-# p.mkdir(parents=True)
-
-output_path = Path("./") / "outputs/version2/batch1"
+# save output
+output_path = Path("./") / "outputs/features_loss/batch1"
 show(test_batch, output_path)
 show(output, output_path)
 

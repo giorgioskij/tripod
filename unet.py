@@ -12,10 +12,10 @@ from enum import Enum, auto
 
 # res = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
 # summary(res)
-u = smp.Unet(encoder_name="resnet34",
-             encoder_weights=None,
-             in_channels=3,
-             classes=3)
+# u = smp.Unet(encoder_name="resnet34",
+#              encoder_weights=None,
+#              in_channels=3,
+#              classes=3)
 
 
 class PoolingStrategy(Enum):
@@ -50,13 +50,29 @@ class DoubleConv(nn.Module):
 
 class Upscale(nn.Module):
 
-    def __init__(self, in_channels: int, out_channels: int):
+    def __init__(self,
+                 in_channels: int,
+                 out_channels: int,
+                 bilinear: bool = False):
         super().__init__()
-        self.upconv = nn.ConvTranspose2d(in_channels,
-                                         in_channels // 2,
-                                         kernel_size=2,
-                                         stride=2)
+        self.bilinear = bilinear
+
+        if self.bilinear:
+            self.upconv = nn.Sequential(
+                nn.UpsamplingBilinear2d(scale_factor=2),
+                nn.ConvTranspose2d(in_channels,
+                                   in_channels // 2,
+                                   kernel_size=2,
+                                   stride=1),
+            )
+        else:
+            self.upconv = nn.ConvTranspose2d(in_channels,
+                                             in_channels // 2,
+                                             kernel_size=2,
+                                             stride=2)
+
         self.double_conv = DoubleConv(in_channels, out_channels)
+        self.bilinear: bool = bilinear
 
     def forward(self, x: Tensor, residual: Tensor) -> Tensor:
         # upscale x with transpose convolution
@@ -105,11 +121,13 @@ class UNet(L.LightningModule):
     def __init__(self,
                  loss_fn: Callable,
                  pooling_strategy: PoolingStrategy,
+                 bilinear_upsampling: bool = False,
                  in_channels: int = 3,
                  out_channels: int = 3):
         super().__init__()
 
         self.pooling_strategy: PoolingStrategy = pooling_strategy
+        self.bilinear_upsampling: bool = bilinear_upsampling
         self.loss_fn: Callable = loss_fn
 
         # encoder

@@ -1,12 +1,14 @@
 # conda environment named tripod using the latest version of python
 name: tripod
 dependencies:
+  - ipython
   - pip
   - pip:
     - ipykernel
     - ipywidgets
     - lightning
     - matplotlib
+    - pytorch-msssim
     - scipy
     - segmentation-models-pytorch
     - torch

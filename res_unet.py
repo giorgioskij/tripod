@@ -29,9 +29,9 @@ class UResNet(L.LightningModule):
     def _shared_step(self, batch: List[Tensor], prefix: str):
         x, y = batch
         logits = self(x)
-        # prediction = torch.sigmoid(logits)
-        prediction = torch.clip(logits, 0, 1)
-        loss = self.loss_fn(prediction, y)
+        prediction = torch.sigmoid(logits)
+        # prediction = torch.clip(logits, 0, 1)
+        loss = self.loss_fn(prediction, y.to(prediction.dtype))
         self.log(f"{prefix}_loss", loss, prog_bar=True)
         return loss
 
