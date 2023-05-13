@@ -12,6 +12,7 @@ dependencies:
     - scipy
     - scikit-image
     - segmentation-models-pytorch
+    - tensorboard
     - torch
     - torchinfo
     - torchvision

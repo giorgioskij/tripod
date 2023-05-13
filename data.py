@@ -1,17 +1,22 @@
+from enum import Enum, auto
 from pathlib import Path
+from typing import Any, Callable, List, Optional, Tuple
 
 import lightning as L
-from lightning.pytorch.utilities.types import EVAL_DATALOADERS
 import torch.utils.data
 from matplotlib import pyplot as plt
-from torch import nn
+from PIL import Image
+from torch import Tensor, nn
 from torchvision import transforms as T
 from torchvision.datasets import MNIST, Flowers102
-import torchvision
-from typing import Any, Callable, List, Optional, Tuple
-from PIL import Image
-from torch import Tensor
-import os
+
+from div2k import DIV2K
+
+
+class Dataset(Enum):
+    DIV2K = auto()
+    MNIST = auto()
+    FLOWERS = auto()
 
 
 class CustomMNIST(MNIST):
@@ -52,11 +57,11 @@ class CustomFlowers(Flowers102):
         return image, target
 
 
-class SuperDataModule(L.LightningDataModule):
+class TripodDataModule(L.LightningDataModule):
 
     def __init__(
         self,
-        dataset: str = "MNIST",
+        dataset: Dataset = Dataset.FLOWERS,
         data_dir: Path = Path("./datasets"),
         batch_size_train: int = 32,
         batch_size_test: int = 256,
@@ -65,7 +70,7 @@ class SuperDataModule(L.LightningDataModule):
         self.data_dir = data_dir
         self.batch_size_train = batch_size_train
         self.batch_size_test = batch_size_test
-        self.dataset = dataset
+        self.dataset: Dataset = dataset
 
     # def prepare_data(self) -> None:
     # download if not downloaded
@@ -77,25 +82,25 @@ class SuperDataModule(L.LightningDataModule):
     def setup(self, stage=None) -> None:
         self.prepare_data()
 
-        if self.dataset == "MNIST":
+        if self.dataset == Dataset.MNIST:
             sample_transform = T.Compose(
                 [T.GaussianBlur(7, sigma=(1, 2)),
                  T.ToTensor()])
             target_transform = T.ToTensor()
             self.train = CustomMNIST(
-                "./data",
+                self.data_dir,
                 train=True,
                 transform=sample_transform,
                 target_transform=target_transform,
             )
-            self.test = CustomMNIST(
-                "./data",
+            self.val = CustomMNIST(
+                self.data_dir,
                 train=False,
                 transform=sample_transform,
                 target_transform=target_transform,
             )
 
-        elif self.dataset.lower() == "flowers":
+        elif self.dataset == Dataset.FLOWERS:
             sample_transform = T.Compose([
                 T.Resize((416, 416)),
                 T.GaussianBlur(9, sigma=(1, 5)),
@@ -106,32 +111,45 @@ class SuperDataModule(L.LightningDataModule):
                 T.ToTensor(),
             ])
             self.train = CustomFlowers(
-                "./data",
+                self.data_dir,
                 download=True,
                 split="train",
                 transform=sample_transform,
                 target_transform=target_transform,
             )
             self.val = CustomFlowers(
-                "./data",
+                self.data_dir,
                 download=True,
                 split="val",
                 transform=sample_transform,
                 target_transform=target_transform,
             )
             self.test = CustomFlowers(
-                "./data",
+                self.data_dir,
                 download=True,
                 split="test",
                 transform=sample_transform,
                 target_transform=target_transform,
             )
 
+        elif self.dataset == Dataset.DIV2K:
+            common_transform = T.Compose(
+                [T.RandomCrop((500, 500)),
+                 T.ToTensor()])
+            self.train = DIV2K(root_dir=self.data_dir,
+                               train=True,
+                               common_transform=common_transform,
+                               download=True)
+            self.val = DIV2K(root_dir=self.data_dir,
+                             train=False,
+                             common_transform=common_transform,
+                             download=True)
+
         # loaders for demo
         self.trainset_iter = iter(self.train)
         self.trainloader_iter = iter(self.train_dataloader(4))
-        self.testset_iter = iter(self.test)
-        self.testloader_iter = iter(self.test_dataloader(4))
+        self.valset_iter = iter(self.val)
+        self.valloader_iter = iter(self.val_dataloader(4))
 
     def train_dataloader(self, batch_size=None):
         if batch_size is None:
@@ -141,9 +159,11 @@ class SuperDataModule(L.LightningDataModule):
                                            shuffle=True,
                                            num_workers=0)
 
-    def val_dataloader(self):
+    def val_dataloader(self, batch_size=None):
+        if batch_size is None:
+            batch_size = self.batch_size_test
         return torch.utils.data.DataLoader(self.val,
-                                           batch_size=self.batch_size_test,
+                                           batch_size=batch_size,
                                            shuffle=False,
                                            num_workers=0)
 
@@ -159,13 +179,13 @@ class SuperDataModule(L.LightningDataModule):
         if train:
             return next(self.trainset_iter)
         else:
-            return next(self.testset_iter)
+            return next(self.valset_iter)
 
     def demo_batch(self, train=True) -> List[Tensor]:
         if train:
             return next(self.trainloader_iter)
         else:
-            return next(self.testloader_iter)
+            return next(self.valloader_iter)
 
 
 def display_batch(b, predictions=None, max_images=4):
@@ -214,7 +234,7 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
 
     # batch of images
     elif isinstance(b, Tensor) and len(b.shape) == 4:
-        f, ax = plt.subplots(1, len(b))
+        f, ax = plt.subplots(1, len(b), figsize=(20, 20))
         for i, img in enumerate(b):
             img = tensor_to_image(img)
             if save_path is not None:
