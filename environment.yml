@@ -8,6 +8,7 @@ dependencies:
     - ipywidgets
     - lightning
     - matplotlib
+    - pandas
     - pytorch-msssim
     - scipy
     - scikit-image

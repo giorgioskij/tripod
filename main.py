@@ -33,7 +33,9 @@ class Loss(Enum):
     L1 = nn.L1Loss()
 
 
-def load_model(architecture: Architecture, loss: Loss) -> L.LightningModule:
+def load_model(architecture: Architecture,
+               loss: Loss,
+               lr: float = 1e-3) -> L.LightningModule:
     if architecture == Architecture.UNET:
         return UNet(loss_fn=loss.value,
                     pooling_strategy=PoolingStrategy.conv,
@@ -48,7 +50,7 @@ def load_model(architecture: Architecture, loss: Loss) -> L.LightningModule:
             residual_scaling=1,
             n_resblocks=16,
             loss_fn=loss.value,
-            learning_rate=1e-3,
+            learning_rate=lr,
         )
 
 
@@ -74,6 +76,7 @@ def train(model: L.LightningModule,
         logger=loggers.CSVLogger(save_dir="./", version=version),
         precision="16-mixed",
         detect_anomaly=True,
+        gradient_clip_val=1,
     )
     trainer.fit(model=model, datamodule=datamodule)
     return trainer
@@ -98,8 +101,8 @@ def demo_model(model: L.LightningModule,
 
 if __name__ == "__main__":
     d = load_datamodule(Dataset.DIV2K)
-    d.load_from_checkpoint(
-        "lightning_logs/version_4/checkpoints/epoch=9-step=2000.ckpt")
-    m = load_model(Architecture.EDSR, Loss.L1)
-    trainer = train(m, d, epochs=10, version=4)
+    m = load_model(Architecture.EDSR, Loss.L1, lr=4e-5)
+    # m.load_from_checkpoint(
+    #     "lightning_logs/version_4/checkpoints/epoch=19-step=4000.ckpt")
+    trainer = train(m, d, epochs=100, version=4)
     demo_model(m, d, train=True)

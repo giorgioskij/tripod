@@ -55,17 +55,17 @@ class ResidualBlock(nn.Module):
         return res
 
 
-# class Upsampler2X(nn.Sequential):
-#     """
-#         Upsamples the input by a factor of 2 applying a convolution
-#         and pixel shuffle.
-#     """
+class Upsampler2X(nn.Sequential):
+    """
+        Upsamples the input by a factor of 2 applying a convolution
+        and pixel shuffle.
+    """
 
-#     def __init__(self, n_features: int):
-#         super().__init__(
-#             PaddedConv3x3(n_features, 4 * n_features),
-#             nn.PixelShuffle(upscale_factor=2),
-#         )
+    def __init__(self, n_features: int):
+        super().__init__(
+            PaddedConv3x3(n_features, 1 * n_features),
+            nn.PixelShuffle(upscale_factor=1),
+        )
 
 
 class EDSR(L.LightningModule):
@@ -100,8 +100,9 @@ class EDSR(L.LightningModule):
 
         # tail wihtout upsampling: no super resolution, just sharpening
         self.tail: nn.Sequential = nn.Sequential(
-            # Upsampler2X(self.n_features),
-            PaddedConv3x3(self.n_features, 3),)
+            Upsampler2X(self.n_features),
+            PaddedConv3x3(self.n_features, 3),
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.sub_mean(x)
@@ -126,4 +127,7 @@ class EDSR(L.LightningModule):
         return self._shared_step(batch, 'valid')
 
     def configure_optimizers(self) -> Any:
-        return torch.optim.Adam(self.parameters(), lr=self.lr)
+        return torch.optim.Adam(self.parameters(),
+                                lr=self.lr,
+                                betas=(0.9, 0.999),
+                                eps=1e-8)

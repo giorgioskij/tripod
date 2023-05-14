@@ -133,9 +133,7 @@ class TripodDataModule(L.LightningDataModule):
             )
 
         elif self.dataset == Dataset.DIV2K:
-            common_transform = T.Compose(
-                [T.RandomCrop((500, 500)),
-                 T.ToTensor()])
+            common_transform = T.Compose([T.RandomCrop((48, 48)), T.ToTensor()])
             self.train = DIV2K(root_dir=self.data_dir,
                                train=True,
                                common_transform=common_transform,
