@@ -9,6 +9,7 @@ from PIL import Image
 from torch import Tensor, nn
 from torchvision import transforms as T
 from torchvision.datasets import MNIST, Flowers102
+import random
 
 from div2k import DIV2K
 
@@ -63,13 +64,28 @@ class TripodDataModule(L.LightningDataModule):
         self,
         dataset: Dataset = Dataset.FLOWERS,
         data_dir: Path = Path("./datasets"),
+        batch_size: Optional[int] = None,
         batch_size_train: int = 32,
         batch_size_test: int = 256,
     ):
+        """TripodDataModule for sharpening
+
+        Args:
+            dataset (Dataset, optional): Defaults to Dataset.FLOWERS.
+            data_dir (Path, optional): Defaults to Path("./datasets").
+            batch_size (Optional[int], optional): Defaults to None.
+            batch_size_train (int, optional): Defaults to 32.
+            batch_size_test (int, optional): Defaults to 256.
+        """
+
         super().__init__()
         self.data_dir = data_dir
         self.batch_size_train = batch_size_train
         self.batch_size_test = batch_size_test
+        if batch_size is not None:
+            self.batch_size = batch_size
+            self.batch_size_train = batch_size
+            self.batch_size_test = batch_size
         self.dataset: Dataset = dataset
 
     # def prepare_data(self) -> None:
@@ -133,14 +149,25 @@ class TripodDataModule(L.LightningDataModule):
             )
 
         elif self.dataset == Dataset.DIV2K:
-            common_transform = T.Compose([T.RandomCrop((48, 48)), T.ToTensor()])
+            common_transform = T.RandomCrop((48, 48))
+            sample_transform = T.Compose([
+                # T.GaussianBlur(kernel_size=3, sigma=random.random()),
+                T.Resize((24, 24)),
+                T.Resize((48, 48)),
+                T.ToTensor(),
+            ])
+            target_transform = T.ToTensor()
             self.train = DIV2K(root_dir=self.data_dir,
                                train=True,
                                common_transform=common_transform,
+                               transform=sample_transform,
+                               target_transform=target_transform,
                                download=True)
             self.val = DIV2K(root_dir=self.data_dir,
                              train=False,
                              common_transform=common_transform,
+                             transform=sample_transform,
+                             target_transform=target_transform,
                              download=True)
 
         # loaders for demo

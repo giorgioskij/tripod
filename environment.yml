@@ -17,4 +17,5 @@ dependencies:
     - torch
     - torchinfo
     - torchvision
+    - wandb
   - python=3.10

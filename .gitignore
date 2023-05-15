@@ -2,4 +2,6 @@
 lightning_logs/
 __pycache__/
 datasets/
+checkpoints/
+wandb/
 

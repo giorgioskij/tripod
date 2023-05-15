@@ -117,7 +117,7 @@ class EDSR(L.LightningModule):
         lowres, highres = batch
         prediction = self(lowres)
         loss = self.loss_fn(prediction, highres)
-        self.log(f'{prefix}_loss', loss, prog_bar=True)
+        self.log(f'{prefix}_loss', loss, prog_bar=True, logger=True)
         return loss
 
     def training_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:

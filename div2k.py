@@ -35,7 +35,7 @@ class DIV2K(VisionDataset):
         self.transform = transform
         self.target_transform = target_transform
         self.common_transform = common_transform
-
+        
         self.folder_basename: str = ("DIV2K_train_HR"
                                      if self.train else "DIV2K_valid_HR")
 

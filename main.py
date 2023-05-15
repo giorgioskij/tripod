@@ -8,6 +8,8 @@ from typing import Optional
 import lightning as L
 import torch
 from lightning.pytorch import loggers
+from lightning.pytorch.tuner import Tuner
+from lightning.pytorch.callbacks import ModelCheckpoint
 from torch import nn
 
 from data import Dataset, TripodDataModule, show
@@ -18,6 +20,7 @@ from unet import PoolingStrategy, UNet
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 warnings.filterwarnings("ignore", ".*full_state_update.*")
+warnings.filterwarnings("ignore", ".*exists and is non empty.*")
 torch.set_float32_matmul_precision("medium")
 
 
@@ -47,38 +50,48 @@ def load_model(architecture: Architecture,
     elif architecture == Architecture.EDSR:
         return EDSR(
             n_features=64,
-            residual_scaling=1,
+            # residual_scaling=0.1,
             n_resblocks=16,
             loss_fn=loss.value,
             learning_rate=lr,
         )
 
 
-def load_datamodule(dataset: Dataset, demo: bool = True) -> TripodDataModule:
+def load_datamodule(dataset: Dataset,
+                    demo: bool = True,
+                    batch_size_train: int = 32) -> TripodDataModule:
     # load data and model
-    d: TripodDataModule = TripodDataModule(batch_size_train=4,
-                                           batch_size_test=16,
+    d: TripodDataModule = TripodDataModule(batch_size_train=batch_size_train,
+                                           batch_size_test=64,
                                            dataset=dataset)
     d.setup()
     if demo:
+        print("Preview of dataset. Row 1: samples, Row 2: targets")
         b = d.demo_batch()
         show(b)
     return d
 
 
-def train(model: L.LightningModule,
-          datamodule: TripodDataModule,
-          epochs: int = 1,
-          version: int = 0):
+def train(
+    model: L.LightningModule,
+    datamodule: TripodDataModule,
+    root_dir: str | Path,
+    epochs: int = 1,
+    version: int = 0,
+    restart_from: Optional[str | Path] = None,
+):
     trainer = L.Trainer(
+        default_root_dir=root_dir,
         accelerator="auto",
         max_epochs=epochs,
         logger=loggers.CSVLogger(save_dir="./", version=version),
         precision="16-mixed",
         detect_anomaly=True,
         gradient_clip_val=1,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=0,
     )
-    trainer.fit(model=model, datamodule=datamodule)
+    trainer.fit(model=model, datamodule=datamodule, ckpt_path=str(restart_from))
     return trainer
 
 
@@ -99,10 +112,59 @@ def demo_model(model: L.LightningModule,
         show(output)
 
 
+def tune_params(m: L.LightningModule, d: TripodDataModule):
+
+    trainer = L.Trainer(
+        accelerator="auto",
+        max_epochs=1,
+        logger=None,
+        precision="16-mixed",
+        gradient_clip_val=1,
+    )
+    tuner = Tuner(trainer)
+
+    # find optimal learning rate
+    # tuner.lr_find(model=m, datamodule=d)
+
+    # find maximum batch size for training
+    tuner.scale_batch_size(model=m,
+                           datamodule=d,
+                           method="fit",
+                           mode="binsearch")
+    # find maximum batch size for validation
+    tuner.scale_batch_size(model=m,
+                           datamodule=d,
+                           method="validate",
+                           mode="binsearch")
+
+
 if __name__ == "__main__":
-    d = load_datamodule(Dataset.DIV2K)
-    m = load_model(Architecture.EDSR, Loss.L1, lr=4e-5)
-    # m.load_from_checkpoint(
-    #     "lightning_logs/version_4/checkpoints/epoch=19-step=4000.ckpt")
-    trainer = train(m, d, epochs=100, version=4)
-    demo_model(m, d, train=True)
+
+    logger = loggers.WandbLogger(project="tripod")
+    ckp = ModelCheckpoint(dirpath="checkpoints/edsr/",
+                          save_top_k=2,
+                          monitor="valid_loss")
+
+    d = TripodDataModule(Dataset.DIV2K, batch_size_train=32, batch_size_test=64)
+
+    m = EDSR(n_features=64,
+             residual_scaling=0.5,
+             n_resblocks=16,
+             loss_fn=nn.L1Loss(),
+             learning_rate=4e-5)
+
+    trainer = L.Trainer(
+        callbacks=[ckp],
+        accelerator="auto",
+        max_epochs=1000,
+        logger=logger,
+        precision="16-mixed",
+        detect_anomaly=True,
+        gradient_clip_val=1,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=0,
+    )
+    trainer.fit(model=m, datamodule=d)
+
+    # demo_model(m, d, train=True)
+    # tune_params(m, d)
