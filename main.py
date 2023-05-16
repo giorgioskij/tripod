@@ -9,7 +9,7 @@ import lightning as L
 import torch
 from lightning.pytorch import loggers
 from lightning.pytorch.tuner import Tuner
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import ModelCheckpoint, OnExceptionCheckpoint
 from torch import nn
 
 from data import Dataset, TripodDataModule, show
@@ -141,20 +141,28 @@ def tune_params(m: L.LightningModule, d: TripodDataModule):
 if __name__ == "__main__":
 
     logger = loggers.WandbLogger(project="tripod")
-    ckp = ModelCheckpoint(dirpath="checkpoints/edsr/",
-                          save_top_k=2,
-                          monitor="valid_loss")
+    ckp = ModelCheckpoint(
+        dirpath="checkpoints/unet/",
+        save_top_k=2,
+        monitor="valid_loss",
+        filename="{epoch}-{valid_loss:.3f}",
+    )
+    int_ckp = OnExceptionCheckpoint(dirpath="checkpoints/unet/",
+                                    filename="interrupted")
 
     d = TripodDataModule(Dataset.DIV2K, batch_size_train=32, batch_size_test=64)
 
-    m = EDSR(n_features=64,
-             residual_scaling=0.5,
-             n_resblocks=16,
-             loss_fn=nn.L1Loss(),
-             learning_rate=4e-5)
+    # m = EDSR(n_features=64,
+    #          residual_scaling=0.5,
+    #          n_resblocks=16,
+    #          loss_fn=nn.L1Loss(),
+    #          learning_rate=4e-5)
+    m = UNet(loss_fn=nn.L1Loss(),
+             pooling_strategy=PoolingStrategy.conv,
+             bilinear_upsampling=True)
 
     trainer = L.Trainer(
-        callbacks=[ckp],
+        callbacks=[ckp, int_ckp],
         accelerator="auto",
         max_epochs=1000,
         logger=logger,
@@ -162,9 +170,14 @@ if __name__ == "__main__":
         detect_anomaly=True,
         gradient_clip_val=1,
         check_val_every_n_epoch=1,
-        log_every_n_steps=0,
+        log_every_n_steps=5,
     )
-    trainer.fit(model=m, datamodule=d)
+    trainer.fit(
+        model=m,
+        datamodule=d,
+        # ckpt_path="checkpoints/edsr/interrupted.ckpt",
+    )
 
+    # d.setup()
     # demo_model(m, d, train=True)
     # tune_params(m, d)
