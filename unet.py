@@ -120,10 +120,15 @@ class Downscale(nn.Module):
             x = self.downconv(x)
 
         # residual connection around double convolution
-        double_conv_out = self.double_conv(x)
         if self.residual:
-            res = self.res_conv(x)
-            double_conv_out += res
+            res = x.clone()
+            res = self.res_conv(res)
+
+        double_conv_out = self.double_conv(x)
+
+        if self.residual:
+            output = double_conv_out + res  # type: ignore
+            return output
 
         return double_conv_out
 
