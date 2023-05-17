@@ -242,7 +242,7 @@ def display_batch(b, predictions=None, max_images=4):
 
 
 def tensor_to_image(t: Tensor):
-    return t.detach().cpu().permute(1, 2, 0).numpy()
+    return t.detach().cpu().permute(1, 2, 0).clip(0, 1).numpy()
 
 
 def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
