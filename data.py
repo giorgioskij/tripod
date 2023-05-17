@@ -67,6 +67,8 @@ class TripodDataModule(L.LightningDataModule):
         batch_size: Optional[int] = None,
         batch_size_train: int = 32,
         batch_size_test: int = 256,
+        sample_patch_size: int = 48,
+        target_patch_size: int = 48,
     ):
         """TripodDataModule for sharpening
 
@@ -79,6 +81,10 @@ class TripodDataModule(L.LightningDataModule):
         """
 
         super().__init__()
+        self.sample_patch_size: Tuple[int, int] = (sample_patch_size,
+                                                   sample_patch_size)
+        self.target_patch_size: Tuple[int, int] = (target_patch_size,
+                                                   target_patch_size)
         self.data_dir = data_dir
         self.batch_size_train = batch_size_train
         self.batch_size_test = batch_size_test
@@ -149,13 +155,19 @@ class TripodDataModule(L.LightningDataModule):
             )
 
         elif self.dataset == Dataset.DIV2K:
-            common_transform = T.RandomCrop((48, 48))
-            sample_transform = T.Compose([
-                # T.GaussianBlur(kernel_size=3, sigma=random.random()),
-                T.Resize((24, 24)),
-                T.Resize((48, 48)),
-                T.ToTensor(),
-            ])
+            common_transform = T.RandomCrop(self.target_patch_size)
+            if self.sample_patch_size == self.target_patch_size:
+                sample_transform = T.Compose([
+                    T.Resize((self.sample_patch_size[0] // 2,
+                              self.sample_patch_size[1] // 2)),
+                    T.Resize(self.sample_patch_size),
+                    T.ToTensor(),
+                ])
+            else:
+                sample_transform = T.Compose([
+                    T.Resize(self.sample_patch_size),
+                    T.ToTensor(),
+                ])
             target_transform = T.ToTensor()
             self.train = DIV2K(root_dir=self.data_dir,
                                train=True,
@@ -254,7 +266,8 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
             if not save_path.exists():
                 save_path.mkdir(parents=True)
             plt.imsave(str(save_path / "output.png"), im)
-        plt.imshow(im, cmap="gray")
+        # plt.imshow(im, cmap="gray")
+        plt.imshow(im)
         plt.show()
 
     # batch of images
@@ -266,7 +279,8 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
                 if not save_path.exists():
                     save_path.mkdir(parents=True)
                 plt.imsave(str(save_path / f"output{i}.png"), img)
-            ax[i].imshow(img, cmap="gray")
+            # ax[i].imshow(img, cmap="gray")
+            ax[i].imshow(img)
         plt.show()
 
     else:

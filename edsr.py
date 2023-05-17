@@ -69,6 +69,7 @@ class Upsampler2X(nn.Sequential):
 
 
 class EDSR(L.LightningModule):
+    uses_sigmoid: bool = False
 
     def __init__(self,
                  n_features: int = 256,

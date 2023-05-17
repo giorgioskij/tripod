@@ -3,7 +3,8 @@
 import warnings
 from enum import Enum, auto
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Type
+from dataclasses import dataclass
 
 import lightning as L
 import torch
@@ -17,6 +18,8 @@ from edsr import EDSR
 from loss import TripodLoss
 from res_unet import UResNet
 from unet import PoolingStrategy, UNet
+
+import edsr_paper
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 warnings.filterwarnings("ignore", ".*full_state_update.*")
@@ -98,11 +101,10 @@ def train(
 def demo_model(model: L.LightningModule,
                d: TripodDataModule,
                train: bool = False,
-               sigmoid: bool = True,
                save_path: Optional[Path] = None):
     test_batch = d.demo_batch(train=train)
     output = model(test_batch[0].to(model.device))
-    if sigmoid:
+    if model.uses_sigmoid:
         output = torch.sigmoid(output)
     if save_path is not None:
         show(test_batch, save_path)
@@ -138,29 +140,39 @@ def tune_params(m: L.LightningModule, d: TripodDataModule):
                            mode="binsearch")
 
 
-if __name__ == "__main__":
+def test_model(model_class: Type, ckp_path: Path | str):
+    m = model_class.load_from_checkpoint(str(ckp_path), loss_fn=nn.L1Loss)
+    d = TripodDataModule(Dataset.DIV2K, batch_size_train=32, batch_size_test=64)
+    d.setup()
+    demo_model(m, d, train=False)
+    return m, d
 
+
+def train_model():
     logger = loggers.WandbLogger(project="tripod")
+    ckp_path = "checkpoints/res-unet/"
     ckp = ModelCheckpoint(
-        dirpath="checkpoints/unet/",
+        dirpath=ckp_path,
         save_top_k=2,
         monitor="valid_loss",
         filename="{epoch}-{valid_loss:.3f}",
     )
-    int_ckp = OnExceptionCheckpoint(dirpath="checkpoints/unet/",
-                                    filename="interrupted")
+    int_ckp = OnExceptionCheckpoint(dirpath=ckp_path, filename="interrupted")
 
-    d = TripodDataModule(Dataset.DIV2K, batch_size_train=32, batch_size_test=64)
+    d = TripodDataModule(Dataset.DIV2K, batch_size_train=16, batch_size_test=64)
 
     # m = EDSR(n_features=64,
     #          residual_scaling=0.5,
     #          n_resblocks=16,
     #          loss_fn=nn.L1Loss(),
     #          learning_rate=4e-5)
-    m = UNet(loss_fn=nn.L1Loss(),
-             pooling_strategy=PoolingStrategy.conv,
-             bilinear_upsampling=True)
-
+    m = UNet(
+        loss_fn=nn.L1Loss(),
+        pooling_strategy=PoolingStrategy.conv,
+        residual=True,
+        bilinear_upsampling=False,
+        learning_rate=1e-4,
+    )
     trainer = L.Trainer(
         callbacks=[ckp, int_ckp],
         accelerator="auto",
@@ -179,5 +191,57 @@ if __name__ == "__main__":
     )
 
     # d.setup()
-    # demo_model(m, d, train=True)
+    # demo_model(m, d, train=False)
     # tune_params(m, d)
+
+
+def train_paper_edsr():
+    logger = loggers.WandbLogger(project="tripod")
+    ckp_path = "checkpoints/edsr-paper"
+    ckp = ModelCheckpoint(
+        dirpath=ckp_path,
+        save_top_k=2,
+        monitor="valid_loss",
+        filename="{epoch}-{valid_loss:.3f}",
+    )
+    int_ckp = OnExceptionCheckpoint(dirpath=ckp_path, filename="interrupted")
+
+    d = TripodDataModule(Dataset.DIV2K,
+                         batch_size_train=32,
+                         batch_size_test=64,
+                         sample_patch_size=48,
+                         target_patch_size=96)
+    m = edsr_paper.EDSRLightning()
+
+    trainer = L.Trainer(
+        callbacks=[ckp, int_ckp],
+        accelerator="auto",
+        max_epochs=1000,
+        logger=logger,
+        precision="16-mixed",
+        detect_anomaly=True,
+        gradient_clip_val=1,
+        check_val_every_n_epoch=1,
+        log_every_n_steps=5,
+    )
+    trainer.fit(model=m,
+                datamodule=d,
+                ckpt_path=str(Path(ckp_path) / "epoch=9-valid_loss=1.546.ckpt"))
+
+    # d.setup()
+    # demo_model(m, d, train=False)
+    # tune_params(m, d)
+
+
+if __name__ == "__main__":
+
+    # test_model(model_class=UNet,
+    #            ckp_path="checkpoints/unet/epoch=605-valid_loss=0.016.ckpt")
+
+    # m, d = test_model(
+    #     model_class=EDSR,
+    #     ckp_path="checkpoints/edsr/epoch=891-valid_loss=0.082.ckpt")
+
+    # train_paper_edsr()
+
+    train_model()

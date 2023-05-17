@@ -26,10 +26,12 @@ class PoolingStrategy(Enum):
 
 class DoubleConv(nn.Module):
 
-    def __init__(self,
-                 in_channels: int,
-                 out_channels: int,
-                 halven: bool = False):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        halven: bool = False,
+    ):
         super().__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels,
@@ -37,8 +39,8 @@ class DoubleConv(nn.Module):
                       kernel_size=3,
                       padding=1,
                       stride=2 if halven else 1),
-            nn.ReLU(inplace=True),
             nn.BatchNorm2d(out_channels),
+            nn.ReLU(inplace=True),
             nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True),
@@ -55,7 +57,7 @@ class Upscale(nn.Module):
                  out_channels: int,
                  bilinear: bool = False):
         super().__init__()
-        self.bilinear = bilinear
+        self.bilinear: bool = bilinear
 
         if self.bilinear:
             # self.upconv = nn.Sequential(
@@ -73,7 +75,6 @@ class Upscale(nn.Module):
                                              stride=2)
 
         self.double_conv = DoubleConv(in_channels, out_channels)
-        self.bilinear: bool = bilinear
 
     def forward(self, x: Tensor, residual: Tensor) -> Tensor:
         # upscale x with transpose convolution
@@ -95,8 +96,10 @@ class Downscale(nn.Module):
         in_channels: int,
         out_channels: int,
         pooling_strategy: PoolingStrategy,
+        residual: bool = False,
     ):
         super().__init__()
+        self.residual: bool = residual
         self.pooling_strategy: PoolingStrategy = pooling_strategy
         halven = pooling_strategy == PoolingStrategy.stride
         self.maxpool = nn.MaxPool2d(2)
@@ -104,7 +107,10 @@ class Downscale(nn.Module):
                                   in_channels,
                                   kernel_size=2,
                                   stride=2)
-
+        self.res_conv = nn.Conv2d(in_channels,
+                                  out_channels,
+                                  kernel_size=3,
+                                  padding=1)
         self.double_conv = DoubleConv(in_channels, out_channels, halven)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -113,16 +119,24 @@ class Downscale(nn.Module):
         elif self.pooling_strategy == PoolingStrategy.conv:
             x = self.downconv(x)
 
-        x = self.double_conv(x)
-        return x
+        # residual connection around double convolution
+        double_conv_out = self.double_conv(x)
+        if self.residual:
+            res = self.res_conv(x)
+            double_conv_out += res
+
+        return double_conv_out
 
 
 class UNet(L.LightningModule):
+    uses_sigmoid: bool = True
 
     def __init__(self,
                  loss_fn: Callable,
                  pooling_strategy: PoolingStrategy,
                  bilinear_upsampling: bool = False,
+                 learning_rate: float = 1e-3,
+                 residual: bool = False,
                  in_channels: int = 3,
                  out_channels: int = 3):
         super().__init__()
@@ -130,24 +144,29 @@ class UNet(L.LightningModule):
         self.pooling_strategy: PoolingStrategy = pooling_strategy
         self.bilinear_upsampling: bool = bilinear_upsampling
         self.loss_fn: Callable = loss_fn
+        self.lr: float = learning_rate
+        self.residual: bool = residual
 
         # encoder
         self.input_conv = DoubleConv(in_channels, 64)
-        self.downscale1 = Downscale(64, 128, self.pooling_strategy)
-        self.downscale2 = Downscale(128, 256, self.pooling_strategy)
-        self.downscale3 = Downscale(256, 512, self.pooling_strategy)
-        self.downscale4 = Downscale(512, 1024, self.pooling_strategy)
+        self.downscale1 = Downscale(64, 128, self.pooling_strategy,
+                                    self.residual)
+        self.downscale2 = Downscale(128, 256, self.pooling_strategy,
+                                    self.residual)
+        self.downscale3 = Downscale(256, 512, self.pooling_strategy,
+                                    self.residual)
+        self.downscale4 = Downscale(512, 1024, self.pooling_strategy,
+                                    self.residual)
 
         # decoder
-        self.upscale1 = Upscale(1024, 512)
-        self.upscale2 = Upscale(512, 256)
-        self.upscale3 = Upscale(256, 128)
-        self.upscale4 = Upscale(128, 64)
+        self.upscale1 = Upscale(1024, 512, self.bilinear_upsampling)
+        self.upscale2 = Upscale(512, 256, self.bilinear_upsampling)
+        self.upscale3 = Upscale(256, 128, self.bilinear_upsampling)
+        self.upscale4 = Upscale(128, 64, self.bilinear_upsampling)
         self.output_conv = nn.Conv2d(64, out_channels, kernel_size=1)
         self.bn = nn.BatchNorm2d(out_channels)
 
-        self.save_hyperparameters(
-            ignore=["in_channels", "out_channels", "loss_fn"])
+        self.save_hyperparameters(ignore=["in_channels", "out_channels"])
 
     def forward(self, x: Tensor) -> Tensor:
         # encode
@@ -163,7 +182,6 @@ class UNet(L.LightningModule):
         x = self.upscale3(x, x2)
         x = self.upscale4(x, x1)
         x = self.output_conv(x)
-        x = self.bn(x)
         return x
 
     def training_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:
@@ -187,5 +205,5 @@ class UNet(L.LightningModule):
         return loss
 
     def configure_optimizers(self) -> Any:
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
