@@ -1,9 +1,10 @@
+from pyexpat import model
 from typing import Any
 import lightning as L
 import torch
 from torch import Tensor
 from torch import nn
-from typing import Callable, List
+from typing import Callable, List, Optional
 import torchvision.transforms.functional
 from torchinfo import summary
 from torchvision import models
@@ -30,21 +31,52 @@ class DoubleConv(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
+        mid_channels: Optional[int] = None,
         halven: bool = False,
+        use_bn: bool = True,
     ):
         super().__init__()
-        self.conv = nn.Sequential(
+        if mid_channels is None:
+            mid_channels = out_channels
+        modules: List[nn.Module] = []
+        modules.append(
             nn.Conv2d(in_channels,
+                      mid_channels,
+                      kernel_size=3,
+                      padding=1,
+                      stride=2 if halven else 1,
+                      bias=False))
+        if use_bn:
+            modules.append(nn.BatchNorm2d(mid_channels))
+        modules.append(nn.ReLU(inplace=True))
+        modules.append(
+            nn.Conv2d(mid_channels,
                       out_channels,
                       kernel_size=3,
                       padding=1,
-                      stride=2 if halven else 1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True),
-        )
+                      bias=False))
+        if use_bn:
+            modules.append(nn.BatchNorm2d(out_channels))
+
+        self.conv = nn.Sequential(*modules)
+
+        # self.conv = nn.Sequential(
+        #     nn.Conv2d(in_channels,
+        #               mid_channels,
+        #               kernel_size=3,
+        #               padding=1,
+        #               stride=2 if halven else 1,
+        #               bias=False),
+        #     nn.BatchNorm2d(mid_channels),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(mid_channels,
+        #               out_channels,
+        #               kernel_size=3,
+        #               padding=1,
+        #               bias=False),
+        #     nn.BatchNorm2d(out_channels),
+        #     # nn.ReLU(inplace=True),
+        # )
 
     def forward(self, x: Tensor) -> Tensor:
         return self.conv(x)
@@ -60,25 +92,24 @@ class Upscale(nn.Module):
         self.bilinear: bool = bilinear
 
         if self.bilinear:
-            # self.upconv = nn.Sequential(
-            #     nn.UpsamplingBilinear2d(scale_factor=2),
-            #     nn.ConvTranspose2d(in_channels,
-            #                        in_channels // 2,
-            #                        kernel_size=2,
-            #                        stride=1),
-            # )
-            self.upconv = nn.UpsamplingBilinear2d(scale_factor=2)
+            # self.up = nn.UpsamplingBilinear2d(scale_factor=2)
+            self.up = nn.Upsample(scale_factor=2,
+                                  mode="bilinear",
+                                  align_corners=True)
+            # self.up = nn.PixelShuffle(2)
+            self.double_conv = DoubleConv(in_channels,
+                                          out_channels,
+                                          mid_channels=in_channels // 2)
         else:
-            self.upconv = nn.ConvTranspose2d(in_channels,
-                                             in_channels // 2,
-                                             kernel_size=2,
-                                             stride=2)
-
-        self.double_conv = DoubleConv(in_channels, out_channels)
+            self.up = nn.ConvTranspose2d(in_channels,
+                                         in_channels // 2,
+                                         kernel_size=2,
+                                         stride=2)
+            self.double_conv = DoubleConv(in_channels, out_channels)
 
     def forward(self, x: Tensor, residual: Tensor) -> Tensor:
         # upscale x with transpose convolution
-        x = self.upconv(x)
+        x = self.up(x)
         # crop residual in the center to the size of x
         residual = torchvision.transforms.functional.center_crop(
             residual, list(x.shape[-2:]))
@@ -111,7 +142,7 @@ class Downscale(nn.Module):
                                   out_channels,
                                   kernel_size=3,
                                   padding=1)
-        self.double_conv = DoubleConv(in_channels, out_channels, halven)
+        self.double_conv = DoubleConv(in_channels, out_channels, halven=halven)
 
     def forward(self, x: Tensor) -> Tensor:
         if self.pooling_strategy == PoolingStrategy.max:
@@ -152,6 +183,8 @@ class UNet(L.LightningModule):
         self.lr: float = learning_rate
         self.residual: bool = residual
 
+        factor = 2 if self.bilinear_upsampling else 1
+
         # encoder
         self.input_conv = DoubleConv(in_channels, 64)
         self.downscale1 = Downscale(64, 128, self.pooling_strategy,
@@ -160,16 +193,18 @@ class UNet(L.LightningModule):
                                     self.residual)
         self.downscale3 = Downscale(256, 512, self.pooling_strategy,
                                     self.residual)
-        self.downscale4 = Downscale(512, 1024, self.pooling_strategy,
+        self.downscale4 = Downscale(512, 1024 // factor, self.pooling_strategy,
                                     self.residual)
 
         # decoder
-        self.upscale1 = Upscale(1024, 512, self.bilinear_upsampling)
-        self.upscale2 = Upscale(512, 256, self.bilinear_upsampling)
-        self.upscale3 = Upscale(256, 128, self.bilinear_upsampling)
+        self.upscale1 = Upscale(1024, 512 // factor, self.bilinear_upsampling)
+        self.upscale2 = Upscale(512, 256 // factor, self.bilinear_upsampling)
+        self.upscale3 = Upscale(256, 128 // factor, self.bilinear_upsampling)
         self.upscale4 = Upscale(128, 64, self.bilinear_upsampling)
         self.output_conv = nn.Conv2d(64, out_channels, kernel_size=1)
-        self.bn = nn.BatchNorm2d(out_channels)
+
+        #
+        self.last_conv = nn.Conv2d(6, 3, kernel_size=7, padding=3)
 
         self.save_hyperparameters(ignore=["in_channels", "out_channels"])
 
@@ -179,15 +214,20 @@ class UNet(L.LightningModule):
         x2 = self.downscale1(x1)
         x3 = self.downscale2(x2)
         x4 = self.downscale3(x3)
-        x = self.downscale4(x4)
+        x5 = self.downscale4(x4)
 
         # decode
-        x = self.upscale1(x, x4)
-        x = self.upscale2(x, x3)
-        x = self.upscale3(x, x2)
-        x = self.upscale4(x, x1)
-        x = self.output_conv(x)
-        return x
+        res = self.upscale1(x5, x4)
+        res = self.upscale2(res, x3)
+        res = self.upscale3(res, x2)
+        res = self.upscale4(res, x1)
+        res = self.output_conv(res)
+
+        # concatenate input and output of the decoder
+        concatenation = torch.cat((x, res), dim=-3)
+        out = self.last_conv(concatenation)
+
+        return out
 
     def training_step(self, batch: List[Tensor], batch_idx: int) -> Tensor:
         loss = self._shared_step(batch, "train")

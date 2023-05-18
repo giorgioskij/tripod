@@ -20,8 +20,9 @@ from torch import nn, Tensor, tensor
 import edsr_paper
 from data import Dataset, TripodDataModule, show, tensor_to_image
 from edsr import EDSR
+from uresnet import UResNet
 from loss import TripodLoss
-from res_unet import UResNet
+from uresnet import UResNet
 from unet import PoolingStrategy, UNet
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
@@ -183,6 +184,7 @@ class SaveImages(Callback):
                 ax[1, i].imshow(img2)
                 ax[2, i].imshow(img3)
             plt.savefig(save_path)
+            plt.close()
 
 
 # def test_model(model_class: Type, ckp_path: Path | str):
@@ -193,8 +195,11 @@ class SaveImages(Callback):
 #     return m, d
 
 
-def setup_trainer(ckp_path: Path, save_images_every: int = 5):
-    logger = loggers.WandbLogger(project="tripod")
+def setup_trainer(ckp_path: Path, save_images_every: int = 5, log: bool = True):
+    if log:
+        logger = loggers.WandbLogger(project="tripod")
+    else:
+        logger = loggers.CSVLogger(save_dir="./", version=0)
 
     ckp = ModelCheckpoint(
         dirpath=ckp_path,
@@ -207,7 +212,7 @@ def setup_trainer(ckp_path: Path, save_images_every: int = 5):
 
     if save_images_every > 0:
         save_images_callback = SaveImages(save_path=Path(ckp_path) / "images",
-                                          every_n_epochs=5)
+                                          every_n_epochs=10)
         callbacks.append(save_images_callback)
 
     trainer = L.Trainer(
@@ -223,52 +228,30 @@ def setup_trainer(ckp_path: Path, save_images_every: int = 5):
     return trainer
 
 
-# def train_paper_edsr():
-#     logger = loggers.WandbLogger(project="tripod")
-#     ckp_path = "checkpoints/edsr-paper"
-#     ckp = ModelCheckpoint(
-#         dirpath=ckp_path,
-#         save_top_k=2,
-#         monitor="valid_loss",
-#         filename="{epoch}-{valid_loss:.3f}",
-#     )
-#     int_ckp = OnExceptionCheckpoint(dirpath=ckp_path, filename="interrupted")
-
-#     d = TripodDataModule(Dataset.DIV2K,
-#                          batch_size_train=32,
-#                          batch_size_test=64,
-#                          sample_patch_size=48,
-#                          target_patch_size=96)
-#     m = edsr_paper.EDSRLightning()
-
-#     trainer = L.Trainer(
-#         callbacks=[ckp, int_ckp],
-#         accelerator="auto",
-#         max_epochs=1000,
-#         logger=logger,
-#         precision="16-mixed",
-#         detect_anomaly=True,
-#         gradient_clip_val=1,
-#         check_val_every_n_epoch=1,
-#         log_every_n_steps=5,
-#     )
-#     trainer.fit(model=m,
-#                 datamodule=d,
-#                 ckpt_path=str(Path(ckp_path) / "epoch=9-valid_loss=1.546.ckpt"))
-
 if __name__ == "__main__":
 
-    trainer = setup_trainer(Path("checkpoints/unet_residual_blocks"))
+    trainer = setup_trainer(Path("checkpoints/kolnet"),
+                            save_images_every=10,
+                            log=True)
 
-    m = UNet(
+    # m = UNet(
+    #     loss_fn=nn.L1Loss(),
+    #     pooling_strategy=PoolingStrategy.conv,
+    #     residual=False,
+    #     bilinear_upsampling=True,
+    #     learning_rate=1e-3,
+    # )
+    m = UResNet(
         loss_fn=nn.L1Loss(),
-        pooling_strategy=PoolingStrategy.conv,
-        residual=True,
-        bilinear_upsampling=True,
-        learning_rate=1e-4,
+        learning_rate=1e-3,
+        last_activation=None,
+        freeze_encoder=True,
     )
-
-    d = TripodDataModule(Dataset.DIV2K, batch_size_train=16, batch_size_test=64)
+    d = TripodDataModule(Dataset.DIV2K,
+                         batch_size_train=16,
+                         batch_size_test=64,
+                         sample_patch_size=64,
+                         target_patch_size=128)
 
     trainer.fit(
         model=m,
