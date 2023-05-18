@@ -17,6 +17,7 @@ class UResNet(L.LightningModule):
         # last_activation: Optional[nn.Module] = nn.Sigmoid(),
         freeze_encoder: bool = True,
         use_espcn: bool = False,
+        use_espcn_activations: bool = True,
     ):
         super().__init__()
         # hyperparams
@@ -25,6 +26,7 @@ class UResNet(L.LightningModule):
         self.loss_fn: nn.Module = loss_fn
         self.freeze_encoder: bool = freeze_encoder
         self.use_espcn: bool = use_espcn
+        self.use_espcn_activations: bool = use_espcn_activations
 
         # encoder - pretrained resnet
         self.encoder = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
@@ -59,6 +61,8 @@ class UResNet(L.LightningModule):
             self.conv3x3_32_12 = nn.Conv2d(32, 12, kernel_size=3, padding=1)
             self.tanh = nn.Tanh()
             self.sigmoid = nn.Sigmoid()
+
+        self.relu = nn.ReLU(inplace=True)
 
         if self.freeze_encoder:
             for param in self.encoder.parameters():
@@ -112,11 +116,22 @@ class UResNet(L.LightningModule):
         x6_up = torch.cat((x3_up, x), dim=-3)  # (6, 64, 64)
 
         if self.use_espcn:
-            output = self.tanh(self.conv5x5_6_64(x6_up))  # (64, 64, 64)
-            output = self.tanh(self.conv3x3_64_32(output))  # (32, 64, 64)
+            # first conv
+            output = self.conv5x5_6_64(x6_up)  # (64, 64, 64)
+            # activation
+            output = (self.tanh(output)
+                      if self.use_espcn_activations else self.relu(output))
+            # second conv
+            output = self.conv3x3_64_32(output)  # (32, 64, 64)
+            # activation
+            output = (self.tanh(output)
+                      if self.use_espcn_activations else self.relu(output))
+            # third conv
             output = self.conv3x3_32_12(output)  # (12, 64, 64)
+            # pixel shuffle
             output = self.pixel_shuffle(output)  # (3, 128, 128)
-            output = self.sigmoid(output)
+            if self.use_espcn_activations:
+                output = self.sigmoid(output)
 
         else:
             # finally, apply super resolution: upscale (6, 64x64) -> (3, 128x128)

@@ -7,6 +7,7 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Optional, Type
 from click import Option
+import time
 
 import lightning as L
 import torch
@@ -17,6 +18,7 @@ from lightning.pytorch.tuner import Tuner
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from matplotlib import pyplot as plt
 from torch import nn, Tensor, tensor
+import wandb
 
 import edsr_paper
 from data import Dataset, TripodDataModule, show, tensor_to_image
@@ -241,36 +243,63 @@ def setup_trainer(ckp_path: Optional[Path] = None,
         gradient_clip_val=1,
         check_val_every_n_epoch=1,
         log_every_n_steps=5,
+        num_sanity_val_steps=0,
     )
     return trainer
 
 
 if __name__ == "__main__":
-    epochs = 1
+    epochs = 200
 
     # freeze encoder, train decoder: L1 loss, no espcn
-    m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-4, use_espcn=False)
-    trainer = setup_trainer(n_epochs=epochs, run_name="k_l1_noespcn")
-    d = TripodDataModule()
-    trainer.fit(model=m, datamodule=d)
+    try:
+        m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-4, use_espcn=False)
+        trainer = setup_trainer(n_epochs=epochs, run_name="k_l1_noespcn")
+        d = TripodDataModule()
+        trainer.fit(model=m, datamodule=d)
+        wandb.finish()
+    except:
+        print("---------- Run failed ----------")
 
     # same, but with l2 loss
-    m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=False)
-    trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_noespcn")
-    d = TripodDataModule()
-    trainer.fit(model=m, datamodule=d)
+    try:
+        m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=False)
+        trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_noespcn")
+        d = TripodDataModule()
+        trainer.fit(model=m, datamodule=d)
+        wandb.finish()
+    except:
+        print("---------- Run failed ----------")
 
     # same, but with espcn and l2 loss
-    m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
-    trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_espcn")
-    d = TripodDataModule()
-    trainer.fit(model=m, datamodule=d)
+    try:
+        m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
+        trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_espcn")
+        d = TripodDataModule()
+        trainer.fit(model=m, datamodule=d)
+        wandb.finish()
+    except:
+        print("---------- Run failed ----------")
+
+    # same, but with espcn and l2 loss but no activations
+    try:
+        m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-4, use_espcn=True)
+        trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_espcn_noact")
+        d = TripodDataModule()
+        trainer.fit(model=m, datamodule=d)
+        wandb.finish()
+    except:
+        print("---------- Run failed ----------")
 
     # same, but with larger learning rate
-    trainer = setup_trainer(n_epochs=epochs, run_name="k_l1_noespcn_lr1e-3")
-    m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-3, use_espcn=False)
-    d = TripodDataModule()
-    trainer.fit(model=m, datamodule=d)
+    try:
+        trainer = setup_trainer(n_epochs=epochs, run_name="k_l1_noespcn_lr1e-3")
+        m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-3, use_espcn=False)
+        d = TripodDataModule()
+        trainer.fit(model=m, datamodule=d)
+        wandb.finish()
+    except:
+        print("---------- Run failed ----------")
 
     # train encoder and decoder
     # trainer = setup_trainer(
