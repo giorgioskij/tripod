@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Optional, Type
+from click import Option
 
 import lightning as L
 import torch
@@ -128,23 +129,23 @@ def tune_params(m: L.LightningModule, d: TripodDataModule):
         max_epochs=1,
         logger=None,
         precision="16-mixed",
-        gradient_clip_val=1,
+        # gradient_clip_val=1,
     )
     tuner = Tuner(trainer)
 
     # find optimal learning rate
-    # tuner.lr_find(model=m, datamodule=d)
+    tuner.lr_find(model=m, datamodule=d)
 
     # find maximum batch size for training
-    tuner.scale_batch_size(model=m,
-                           datamodule=d,
-                           method="fit",
-                           mode="binsearch")
+    # tuner.scale_batch_size(model=m,
+    #                        datamodule=d,
+    #                        method="fit",
+    #                        mode="binsearch")
     # find maximum batch size for validation
-    tuner.scale_batch_size(model=m,
-                           datamodule=d,
-                           method="validate",
-                           mode="binsearch")
+    # tuner.scale_batch_size(model=m,
+    #                        datamodule=d,
+    #                        method="validate",
+    #                        mode="binsearch")
 
 
 # pytorch lightning callback that saves a batch of images every 5 epochs
@@ -195,9 +196,21 @@ class SaveImages(Callback):
 #     return m, d
 
 
-def setup_trainer(ckp_path: Path, save_images_every: int = 5, log: bool = True):
+def setup_trainer(ckp_path: Optional[Path] = None,
+                  n_epochs: int = 1,
+                  save_images_every: int = 10,
+                  log: bool = True,
+                  run_name: Optional[str] = None):
+
+    if ckp_path is None and run_name is None:
+        raise ValueError("Either ckp_path or run_name must be specified")
+    if ckp_path is None and run_name is not None:
+        ckp_path = Path("checkpoints") / run_name
+    if run_name is None and ckp_path is not None:
+        run_name = ckp_path.name
+
     if log:
-        logger = loggers.WandbLogger(project="tripod")
+        logger = loggers.WandbLogger(project="tripod", name=run_name)
     else:
         logger = loggers.CSVLogger(save_dir="./", version=0)
 
@@ -206,19 +219,23 @@ def setup_trainer(ckp_path: Path, save_images_every: int = 5, log: bool = True):
         save_top_k=2,
         monitor="valid_loss",
         filename="{epoch}-{valid_loss:.3f}",
+        save_last=True,
     )
-    int_ckp = OnExceptionCheckpoint(dirpath=ckp_path, filename="interrupted")
+    int_ckp = OnExceptionCheckpoint(
+        dirpath=ckp_path,  #type:ignore
+        filename="interrupted")
     callbacks = [ckp, int_ckp]
 
     if save_images_every > 0:
-        save_images_callback = SaveImages(save_path=Path(ckp_path) / "images",
-                                          every_n_epochs=10)
+        save_images_callback = SaveImages(
+            save_path=ckp_path / "images",  #  type:ignore
+            every_n_epochs=10)
         callbacks.append(save_images_callback)
 
     trainer = L.Trainer(
         callbacks=callbacks,
         accelerator="auto",
-        max_epochs=1000,
+        max_epochs=n_epochs,
         logger=logger,
         precision="16-mixed",
         gradient_clip_val=1,
@@ -229,32 +246,44 @@ def setup_trainer(ckp_path: Path, save_images_every: int = 5, log: bool = True):
 
 
 if __name__ == "__main__":
+    epochs = 1
 
-    trainer = setup_trainer(Path("checkpoints/kolnet"),
-                            save_images_every=10,
-                            log=True)
+    # freeze encoder, train decoder: L1 loss, no espcn
+    m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-4, use_espcn=False)
+    trainer = setup_trainer(n_epochs=epochs, run_name="k_l1_noespcn")
+    d = TripodDataModule()
+    trainer.fit(model=m, datamodule=d)
 
-    # m = UNet(
-    #     loss_fn=nn.L1Loss(),
-    #     pooling_strategy=PoolingStrategy.conv,
-    #     residual=False,
-    #     bilinear_upsampling=True,
-    #     learning_rate=1e-3,
+    # same, but with l2 loss
+    m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=False)
+    trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_noespcn")
+    d = TripodDataModule()
+    trainer.fit(model=m, datamodule=d)
+
+    # same, but with espcn and l2 loss
+    m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
+    trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_espcn")
+    d = TripodDataModule()
+    trainer.fit(model=m, datamodule=d)
+
+    # same, but with larger learning rate
+    trainer = setup_trainer(n_epochs=epochs, run_name="k_l1_noespcn_lr1e-3")
+    m = UResNet(loss_fn=nn.L1Loss(), learning_rate=1e-3, use_espcn=False)
+    d = TripodDataModule()
+    trainer.fit(model=m, datamodule=d)
+
+    # train encoder and decoder
+    # trainer = setup_trainer(
+    #     Path("checkpoints/kolnet-finetune"),
+    #     save_images_every=10,
+    #     log=True,
+    #     n_epochs=500,
     # )
-    m = UResNet(
-        loss_fn=nn.L1Loss(),
-        learning_rate=1e-3,
-        last_activation=None,
-        freeze_encoder=True,
-    )
-    d = TripodDataModule(Dataset.DIV2K,
-                         batch_size_train=16,
-                         batch_size_test=64,
-                         sample_patch_size=64,
-                         target_patch_size=128)
-
-    trainer.fit(
-        model=m,
-        datamodule=d,
-        # ckpt_path="last",
-    )
+    # m = UResNet.load_from_checkpoint("ckeckpoints/kolnet/last.ckpt",
+    #                                  freeze_encoder=False)
+    # d = TripodDataModule(Dataset.DIV2K,
+    #                      batch_size_train=16,
+    #                      batch_size_test=64,
+    #                      sample_patch_size=64,
+    #                      target_patch_size=128)
+    # trainer.fit(model=m, datamodule=d)

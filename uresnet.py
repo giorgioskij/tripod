@@ -14,15 +14,17 @@ class UResNet(L.LightningModule):
         self,
         loss_fn: nn.Module = nn.L1Loss(),
         learning_rate: float = 1e-3,
-        last_activation: Optional[nn.Module] = nn.Sigmoid(),
+        # last_activation: Optional[nn.Module] = nn.Sigmoid(),
         freeze_encoder: bool = True,
+        use_espcn: bool = False,
     ):
         super().__init__()
         # hyperparams
         self.lr: float = learning_rate
-        self.last_activation: Optional[nn.Module] = last_activation
+        # self.last_activation: Optional[nn.Module] = last_activation
         self.loss_fn: nn.Module = loss_fn
         self.freeze_encoder: bool = freeze_encoder
+        self.use_espcn: bool = use_espcn
 
         # encoder - pretrained resnet
         self.encoder = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
@@ -51,12 +53,12 @@ class UResNet(L.LightningModule):
                                              stride=2,
                                              padding=3,
                                              bias=False)
-        # self.deconv = nn.ConvTranspose2d(64,
-        #                                  12,
-        #                                  kernel_size=7,
-        #                                  stride=2,
-        #                                  padding=3,
-        #                                  bias=False)
+        if self.use_espcn:
+            self.conv5x5_6_64 = nn.Conv2d(6, 64, kernel_size=5, padding=2)
+            self.conv3x3_64_32 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
+            self.conv3x3_32_12 = nn.Conv2d(32, 12, kernel_size=3, padding=1)
+            self.tanh = nn.Tanh()
+            self.sigmoid = nn.Sigmoid()
 
         if self.freeze_encoder:
             for param in self.encoder.parameters():
@@ -109,14 +111,19 @@ class UResNet(L.LightningModule):
         # concatenate decoded (3, 64x64) and input (3, 64x64)
         x6_up = torch.cat((x3_up, x), dim=-3)  # (6, 64, 64)
 
-        # finally, apply super resolution: upscale (6, 64x64) -> (3, 128x128)
-        output = self.deconv_6_3(
-            x6_up,
-            output_size=(x6_up.shape[-2] * 2, x6_up.shape[-1] * 2),
-        )  # (3, 128, 128)
+        if self.use_espcn:
+            output = self.tanh(self.conv5x5_6_64(x6_up))  # (64, 64, 64)
+            output = self.tanh(self.conv3x3_64_32(output))  # (32, 64, 64)
+            output = self.conv3x3_32_12(output)  # (12, 64, 64)
+            output = self.pixel_shuffle(output)  # (3, 128, 128)
+            output = self.sigmoid(output)
 
-        if self.last_activation is not None:
-            output = self.last_activation(output)
+        else:
+            # finally, apply super resolution: upscale (6, 64x64) -> (3, 128x128)
+            output = self.deconv_6_3(
+                x6_up,
+                output_size=(x6_up.shape[-2] * 2, x6_up.shape[-1] * 2),
+            )  # (3, 128, 128)
 
         return output
 
@@ -132,7 +139,7 @@ class UResNet(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        loss = self._shared_step(batch, "val")
+        loss = self._shared_step(batch, "valid")
         return loss
 
     def test_step(self, batch, batch_idx):

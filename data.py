@@ -62,13 +62,13 @@ class TripodDataModule(L.LightningDataModule):
 
     def __init__(
         self,
-        dataset: Dataset = Dataset.FLOWERS,
+        dataset: Dataset = Dataset.DIV2K,
         data_dir: Path = Path("./datasets"),
         batch_size: Optional[int] = None,
-        batch_size_train: int = 32,
-        batch_size_test: int = 256,
-        sample_patch_size: int = 48,
-        target_patch_size: int = 48,
+        batch_size_train: int = 16,
+        batch_size_test: int = 64,
+        sample_patch_size: int = 64,
+        target_patch_size: int = 128,
     ):
         """TripodDataModule for sharpening
 
