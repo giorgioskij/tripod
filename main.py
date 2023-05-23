@@ -343,13 +343,12 @@ def test_model():
 
 
 if __name__ == "__main__":
-    epochs = 1
+    epochs = 1000
 
     m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
     trainer = setup_trainer(n_epochs=epochs, run_name="k_nodeconv")
     d = TripodDataModule(sample_target_generator=tripod_transforms)
     trainer.fit(model=m, datamodule=d)
-    # wandb.finish()
 
     # train encoder and decoder
     # trainer = setup_trainer(

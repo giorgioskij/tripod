@@ -325,21 +325,26 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
 
 
 def tripod_transforms(sample: Image.Image) -> Tuple[Tensor, Tensor]:
+    # randomly crop 128
     common_transforms = T.Compose([
         T.RandomCrop(128),
     ])
-
     sample = common_transforms(sample)
     target = sample.copy()
 
+    # downscale sample
+    sample = T.Resize(64)(sample)
+
+    # albumentations
     sample_transforms = A.Compose([
-        A.Downscale(interpolation=cv2.INTER_LINEAR),
+        # A.Downscale(interpolation=cv2.INTER_LINEAR),
         A.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.5)),
         A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.1, 3)),
         # albumentations.pytorch.transforms.ToTensorV2(),
     ])
     sample = sample_transforms(image=np.array(sample))["image"]
 
+    # convert both to tensors
     totensor = T.ToTensor()
     sample_tensor = totensor(sample)
     target_tensor = totensor(target)
