@@ -1,5 +1,6 @@
 from enum import Enum, auto
 from pathlib import Path
+from random import sample
 from typing import Any, Callable, List, Optional, Tuple
 
 import lightning as L
@@ -9,7 +10,9 @@ from PIL import Image
 from torch import Tensor, nn
 from torchvision import transforms as T
 from torchvision.datasets import MNIST, Flowers102
-import random
+import albumentations as A
+import cv2
+import numpy as np
 
 from div2k import DIV2K
 
@@ -69,6 +72,12 @@ class TripodDataModule(L.LightningDataModule):
         batch_size_test: int = 64,
         sample_patch_size: int = 64,
         target_patch_size: int = 128,
+        sample_transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
+        common_transform: Optional[Callable] = None,
+        sample_target_generator: Optional[Callable[[Any],
+                                                   Tuple[Tensor,
+                                                         Tensor]]] = None,
     ):
         """TripodDataModule for sharpening
 
@@ -85,9 +94,15 @@ class TripodDataModule(L.LightningDataModule):
                                                    sample_patch_size)
         self.target_patch_size: Tuple[int, int] = (target_patch_size,
                                                    target_patch_size)
-        self.data_dir = data_dir
-        self.batch_size_train = batch_size_train
-        self.batch_size_test = batch_size_test
+        self.data_dir: Path = data_dir
+        self.batch_size_train: int = batch_size_train
+        self.batch_size_test: int = batch_size_test
+        self.sample_transform = sample_transform
+        self.target_transform = target_transform
+        self.common_tranform = common_transform
+        self.sample_target_generator: Optional[Callable[[Any], Tuple[
+            Tensor, Tensor]]] = sample_target_generator
+
         if batch_size is not None:
             self.batch_size = batch_size
             self.batch_size_train = batch_size
@@ -105,6 +120,8 @@ class TripodDataModule(L.LightningDataModule):
         self.prepare_data()
 
         if self.dataset == Dataset.MNIST:
+            raise NotImplementedError(
+                "Implementation not up to date. Use DIV2K.")
             sample_transform = T.Compose(
                 [T.GaussianBlur(7, sigma=(1, 2)),
                  T.ToTensor()])
@@ -123,6 +140,8 @@ class TripodDataModule(L.LightningDataModule):
             )
 
         elif self.dataset == Dataset.FLOWERS:
+            raise NotImplementedError(
+                "Implementation not up to date. Use DIV2K.")
             sample_transform = T.Compose([
                 T.Resize((416, 416)),
                 T.GaussianBlur(9, sigma=(1, 5)),
@@ -155,32 +174,47 @@ class TripodDataModule(L.LightningDataModule):
             )
 
         elif self.dataset == Dataset.DIV2K:
-            common_transform = T.RandomCrop(self.target_patch_size)
-            if self.sample_patch_size == self.target_patch_size:
-                sample_transform = T.Compose([
-                    T.Resize((self.sample_patch_size[0] // 2,
-                              self.sample_patch_size[1] // 2)),
-                    T.Resize(self.sample_patch_size),
-                    T.ToTensor(),
-                ])
-            else:
-                sample_transform = T.Compose([
-                    T.Resize(self.sample_patch_size),
-                    T.ToTensor(),
-                ])
-            target_transform = T.ToTensor()
-            self.train = DIV2K(root_dir=self.data_dir,
-                               train=True,
-                               common_transform=common_transform,
-                               transform=sample_transform,
-                               target_transform=target_transform,
-                               download=True)
-            self.val = DIV2K(root_dir=self.data_dir,
-                             train=False,
-                             common_transform=common_transform,
-                             transform=sample_transform,
-                             target_transform=target_transform,
-                             download=True)
+
+            # sample transforms
+            # sample_albumentations = []
+            # if self.downscale_factor > 1:
+            #     sample_t.append(
+            #         T.RandomCrop(self.sample_patch_size *
+            #                      self.downscale_factor))
+            #     sample_t.append(T.Resize(self.sample_patch_size))
+            # if self.unsharpen:
+            #     sample_t.append(T.RandomAdjustSharpness(sharpness_factor=0))
+            # if self.gaussian_blur:
+            #     sample_t.append(T.GaussianBlur(5, sigma=(1, 3)))
+            # sample_transform = T.Compose([*sample_t, T.ToTensor()])
+
+            # # target transforms
+
+            # if self.sample_patch_size == self.target_patch_size:
+            #     sample_transform = T.Compose([
+            #         *sample_transform,
+            #         T.Resize((self.sample_patch_size[0] // 2,
+            #                   self.sample_patch_size[1] // 2)),
+            #         T.Resize(self.sample_patch_size),
+            #         T.ToTensor(),
+            #     ])
+            # else:
+            #     sample_transform = T.Compose([
+            #         *sample_transform,
+            #         T.Resize(self.sample_patch_size),
+            #         T.ToTensor(),
+            #     ])
+            # target_transform = T.ToTensor()
+            self.train = DIV2K(
+                root_dir=self.data_dir,
+                train=True,
+                sample_target_generator=self.sample_target_generator,
+                download=True)
+            self.val = DIV2K(
+                root_dir=self.data_dir,
+                train=False,
+                sample_target_generator=self.sample_target_generator,
+                download=True)
 
         # loaders for demo
         self.trainset_iter = iter(self.train)
@@ -205,12 +239,13 @@ class TripodDataModule(L.LightningDataModule):
                                            num_workers=10)
 
     def test_dataloader(self, batch_size=None):
-        if batch_size is None:
-            batch_size = self.batch_size_test
-        return torch.utils.data.DataLoader(self.test,
-                                           batch_size=batch_size,
-                                           shuffle=False,
-                                           num_workers=10)
+        raise NotImplementedError()
+        # if batch_size is None:
+        #     batch_size = self.batch_size_test
+        # return torch.utils.data.DataLoader(self.test,
+        #                                    batch_size=batch_size,
+        #                                    shuffle=False,
+        #                                    num_workers=10)
 
     def demo_image(self, train=True):
         if train:
@@ -287,6 +322,29 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
         raise ValueError("Invalid input")
 
     return
+
+
+def tripod_transforms(sample: Image.Image) -> Tuple[Tensor, Tensor]:
+    common_transforms = T.Compose([
+        T.RandomCrop(128),
+    ])
+
+    sample = common_transforms(sample)
+    target = sample.copy()
+
+    sample_transforms = A.Compose([
+        A.Downscale(interpolation=cv2.INTER_LINEAR),
+        A.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.5)),
+        A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.1, 3)),
+        # albumentations.pytorch.transforms.ToTensorV2(),
+    ])
+    sample = sample_transforms(image=np.array(sample))["image"]
+
+    totensor = T.ToTensor()
+    sample_tensor = totensor(sample)
+    target_tensor = totensor(target)
+
+    return sample_tensor, target_tensor
 
 
 # flowers_test = torchvision.datasets.Flowers102("./data",

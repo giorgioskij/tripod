@@ -4,7 +4,7 @@
 from pathlib import Path
 from torchvision.datasets import VisionDataset
 from torchvision.datasets.utils import download_and_extract_archive
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Tuple, Callable, Any
 from PIL import Image
 from torch import Tensor
 
@@ -24,6 +24,9 @@ class DIV2K(VisionDataset):
         transform=None,
         target_transform=None,
         common_transform=None,
+        sample_target_generator: Optional[Callable[[Any],
+                                                   Tuple[Tensor,
+                                                         Tensor]]] = None,
         download: bool = False,
     ):
         super().__init__(str(root_dir),
@@ -35,7 +38,9 @@ class DIV2K(VisionDataset):
         self.transform = transform
         self.target_transform = target_transform
         self.common_transform = common_transform
-        
+        self.sample_target_generator: Optional[Callable[[Any], Tuple[
+            Tensor, Tensor]]] = sample_target_generator
+
         self.folder_basename: str = ("DIV2K_train_HR"
                                      if self.train else "DIV2K_valid_HR")
 
@@ -76,6 +81,9 @@ class DIV2K(VisionDataset):
 
         image: Image.Image = Image.open(self.image_folder /
                                         self.image_files[idx]).convert("RGB")
+
+        if self.sample_target_generator is not None:
+            return self.sample_target_generator(image)
 
         if self.common_transform is not None:
             image = self.common_transform(image)

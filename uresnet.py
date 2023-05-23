@@ -7,26 +7,27 @@ from torchinfo import summary
 from unet import DoubleConv
 
 
-# a lightning module that uses u as its model
+# Custom U-Net with ResNet34 (pretrained on Imagenet) as an encoder
 class UResNet(L.LightningModule):
 
     def __init__(
         self,
         loss_fn: nn.Module = nn.L1Loss(),
         learning_rate: float = 1e-3,
-        # last_activation: Optional[nn.Module] = nn.Sigmoid(),
         freeze_encoder: bool = True,
         use_espcn: bool = False,
         use_espcn_activations: bool = True,
+        avoid_deconv: bool = False,
     ):
         super().__init__()
         # hyperparams
         self.lr: float = learning_rate
         # self.last_activation: Optional[nn.Module] = last_activation
+        self.use_espcn_activations: bool = use_espcn_activations
         self.loss_fn: nn.Module = loss_fn
         self.freeze_encoder: bool = freeze_encoder
         self.use_espcn: bool = use_espcn
-        self.use_espcn_activations: bool = use_espcn_activations
+        self.avoid_deconv: bool = avoid_deconv
 
         # encoder - pretrained resnet
         self.encoder = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
@@ -39,34 +40,40 @@ class UResNet(L.LightningModule):
         self.double_conv_256_128_64 = DoubleConv(256, 64, mid_channels=128)
         self.double_conv_128_64_64 = DoubleConv(128, 64, mid_channels=64)
         self.double_conv_64_64_nobn = DoubleConv(64, 64, use_bn=False)
+        self.double_conv_64_32_3_nobn = DoubleConv(64, 3, 32, use_bn=False)
 
         self.upscale = nn.Upsample(scale_factor=2,
                                    mode="bilinear",
                                    align_corners=True)
-        self.deconv_64_3 = nn.ConvTranspose2d(64,
-                                              3,
-                                              kernel_size=7,
-                                              stride=2,
-                                              padding=3,
-                                              bias=False)
+
+        self.deconv_64_3 = nn.ConvTranspose2d(
+            64,
+            3,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False,
+        )
+        # if self.use_espcn:
+        self.conv5x5_6_64 = nn.Conv2d(6, 64, kernel_size=5, padding=2)
+        self.conv3x3_64_32 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
+        self.conv3x3_32_12 = nn.Conv2d(32, 12, kernel_size=3, padding=1)
+        self.tanh = nn.Tanh()
+        self.sigmoid = nn.Sigmoid()
+        # else:
         self.deconv_6_3 = nn.ConvTranspose2d(6,
                                              3,
                                              kernel_size=7,
                                              stride=2,
                                              padding=3,
                                              bias=False)
-        if self.use_espcn:
-            self.conv5x5_6_64 = nn.Conv2d(6, 64, kernel_size=5, padding=2)
-            self.conv3x3_64_32 = nn.Conv2d(64, 32, kernel_size=3, padding=1)
-            self.conv3x3_32_12 = nn.Conv2d(32, 12, kernel_size=3, padding=1)
-            self.tanh = nn.Tanh()
-            self.sigmoid = nn.Sigmoid()
 
         self.relu = nn.ReLU(inplace=True)
 
         if self.freeze_encoder:
             for param in self.encoder.parameters():
                 param.requires_grad = False
+        self.save_hyperparameters()
 
     def forward(self, x: Tensor) -> Tensor:
         # all comments refer to an example input of size (3, 64, 64)
@@ -106,11 +113,16 @@ class UResNet(L.LightningModule):
         x64_up = self.upscale(x64_up)  # (64, 32, 32)
         x64_up = self.double_conv_64_64_nobn(x64_up)  # (64, 32, 32)
 
-        # upscale 5:
-        x3_up = self.deconv_64_3(
-            x64_up,
-            output_size=(x64_up.shape[-2] * 2, x64_up.shape[-1] * 2),
-        )  # (3, 64, 64)
+        # upscale 5 if applying superresolution
+        if self.avoid_deconv:
+            x3_up = self.upscale(x64_up)  # (64, 64, 64)
+            x3_up = self.double_conv_64_32_3_nobn(x3_up)  # (3, 64, 64)
+
+        else:
+            x3_up = self.deconv_64_3(
+                x64_up,
+                output_size=(x64_up.shape[-2] * 2, x64_up.shape[-1] * 2),
+            )  # (3, 64, 64)
 
         # concatenate decoded (3, 64x64) and input (3, 64x64)
         x6_up = torch.cat((x3_up, x), dim=-3)  # (6, 64, 64)

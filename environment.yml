@@ -4,6 +4,7 @@ dependencies:
   - ipython
   - pip
   - pip:
+    - albumentations
     - ipykernel
     - ipywidgets
     - lightning
