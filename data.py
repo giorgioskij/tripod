@@ -300,7 +300,7 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
         if save_path is not None:
             if not save_path.exists():
                 save_path.mkdir(parents=True)
-            plt.imsave(str(save_path / "output.png"), im)
+            plt.imsave(str(save_path / "img.png"), im)
         # plt.imshow(im, cmap="gray")
         plt.imshow(im)
         plt.show()
@@ -313,7 +313,7 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
             if save_path is not None:
                 if not save_path.exists():
                     save_path.mkdir(parents=True)
-                plt.imsave(str(save_path / f"output{i}.png"), img)
+                plt.imsave(str(save_path / f"img{i}.png"), img)
             # ax[i].imshow(img, cmap="gray")
             ax[i].imshow(img)
         plt.show()

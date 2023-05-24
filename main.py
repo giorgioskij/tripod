@@ -2,12 +2,9 @@
 
 import os
 import warnings
-from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Optional, Type
-from click import Option
-import time
+from typing import Any, Optional
 
 import lightning as L
 import torch
@@ -15,12 +12,11 @@ from lightning.pytorch import loggers
 from lightning.pytorch.callbacks import (Callback, ModelCheckpoint,
                                          OnExceptionCheckpoint)
 from lightning.pytorch.tuner import Tuner
-from lightning.pytorch.utilities.types import STEP_OUTPUT
 from matplotlib import pyplot as plt
-from torch import nn, Tensor, tensor
+from torch import nn, Tensor
 import wandb
+from PIL import Image
 
-import edsr_paper
 from data import Dataset, TripodDataModule, show, tensor_to_image, tripod_transforms
 from edsr import EDSR
 from uresnet import UResNet
@@ -301,52 +297,41 @@ def hyperparam_sweep():
 
 
 def test_model():
-    # data
+    checkpoint = Path("checkpoints/k_nodeconv/epoch=901-valid_loss=0.002.ckpt")
+    output_path = Path("outputs/kolnet_v2/")
+
     d = TripodDataModule(sample_target_generator=tripod_transforms)
     d.setup()
-
-    b = d.demo_batch(train=False)
-    show(b)
-
-    checkpoint = Path("checkpoints/kolnet_nodeconv")
-
-    # module
-    m = UResNet.load_from_checkpoint(
-        checkpoint,
-        use_espcn=True,
-        learning_rate=1e-4,
-        loss_fn=nn.MSELoss(),
-        avoid_deconv=True,
-        strict=False,
-    )
-    m.eval()
-
-    # trainer
+    m = UResNet.load_from_checkpoint(checkpoint,)
     trainer = L.Trainer(precision="16-mixed", logger=False)
     trainer.validate(model=m, datamodule=d)
 
+    b = d.demo_batch(train=False)
     with torch.no_grad():
         pred = m(b[0].to(m.device))
+    show(b, save_path=output_path)
+    show(pred, save_path=output_path / "predictions")
+    return m
 
-    show(pred)
-
-    from PIL import Image
-    images = [
-        Image.open(f"outputs/kolnet/transformed/output{i}.png")
-        for i in range(4)
-    ]
-    resampled = [
-        i.resize((128, 128), resample=Image.Resampling.BILINEAR) for i in images
-    ]
-    for i, image in enumerate(resampled):
-        image.save(f"outputs/kolnet/transformed/resampled{i}.png")
+    # images = [
+    #     Image.open(output_path / f"transformed/img{i}.png") for i in range(4)
+    # ]
+    # resampled = [
+    #     i.resize((128, 128), resample=Image.Resampling.BILINEAR) for i in images
+    # ]
+    # for i, image in enumerate(resampled):
+    #     image.save(output_path / f"transformed/resampled{i}.png")
 
 
 if __name__ == "__main__":
-    epochs = 1000
+    # m = test_model()
+    epochs = 250
 
-    m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
-    trainer = setup_trainer(n_epochs=epochs, run_name="k_nodeconv")
+    m = UResNet(loss_fn=nn.MSELoss(),
+                learning_rate=1e-4,
+                use_espcn=True,
+                avoid_deconv=True)
+    trainer = setup_trainer(n_epochs=epochs, run_name="k_v2")
     d = TripodDataModule(sample_target_generator=tripod_transforms)
     trainer.fit(model=m, datamodule=d)
 
