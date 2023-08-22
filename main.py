@@ -178,12 +178,17 @@ class SaveImages(Callback):
                     target) in enumerate(zip(predictions, batch[0], batch[1])):
                 if i > 3:
                     break
-                img1, img2, img3 = (tensor_to_image(sample),
-                                    tensor_to_image(output),
-                                    tensor_to_image(target))
-                ax[0, i].imshow(img1)
-                ax[1, i].imshow(img2)
-                ax[2, i].imshow(img3)
+                for x, image in enumerate([sample, output, target]):
+                    if image.shape[-3] == 4:
+                        image = image[..., :3, :, :]
+                    ax[x, i].imshow(tensor_to_image(image))
+
+                # img1, img2, img3 = (tensor_to_image(sample),
+                #                     tensor_to_image(output),
+                #                     tensor_to_image(target))
+                # ax[0, i].imshow(img1)
+                # ax[1, i].imshow(img2)
+                # ax[2, i].imshow(img3)
             plt.savefig(save_path)
             plt.close()
 
