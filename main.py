@@ -17,12 +17,14 @@ from torch import nn, Tensor
 import wandb
 from PIL import Image
 
-from data import Dataset, TripodDataModule, show, tensor_to_image, tripod_transforms
+from data import Dataset, TripodDataModule, show, tensor_to_image
+from preprocessing import tripod_transforms
 from edsr import EDSR
 from uresnet import UResNet
 from loss import TripodLoss
 from uresnet import UResNet
 from unet import PoolingStrategy, UNet
+import preprocessing
 
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 warnings.filterwarnings("ignore", ".*full_state_update.*")
@@ -327,13 +329,14 @@ if __name__ == "__main__":
     # m = test_model()
     epochs = 250
 
-    m = UResNet(loss_fn=nn.MSELoss(),
-                learning_rate=1e-4,
-                use_espcn=True,
-                avoid_deconv=True)
-    trainer = setup_trainer(n_epochs=epochs, run_name="k_v2")
-    d = TripodDataModule(sample_target_generator=tripod_transforms)
-    trainer.fit(model=m, datamodule=d)
+    # m = UResNet(loss_fn=nn.MSELoss(),
+    #             learning_rate=1e-4,
+    #             use_espcn=True,
+    #             avoid_deconv=True)
+    # trainer = setup_trainer(n_epochs=epochs, run_name="k_v2")
+    d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
+    d.setup()
+    # trainer.fit(model=m, datamodule=d)
 
     # train encoder and decoder
     # trainer = setup_trainer(

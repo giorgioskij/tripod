@@ -90,8 +90,10 @@ class DIV2K(VisionDataset):
 
         if isinstance(image, Image.Image):
             target = image.copy()  # image is a PIL image
-        else:
+        elif isinstance(image, Tensor):
             target = image.clone()  # image is a tensor
+        else:
+            raise TypeError("Image is not of a known type")
 
         if self.transform is not None:
             image = self.transform(image)

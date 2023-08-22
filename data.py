@@ -236,7 +236,7 @@ class TripodDataModule(L.LightningDataModule):
         return torch.utils.data.DataLoader(self.val,
                                            batch_size=batch_size,
                                            shuffle=False,
-                                           num_workers=10)
+                                           num_workers=0)
 
     def test_dataloader(self, batch_size=None):
         raise NotImplementedError()
@@ -280,7 +280,9 @@ def tensor_to_image(t: Tensor):
     return t.detach().cpu().permute(1, 2, 0).clip(0, 1).numpy()
 
 
-def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
+def show(b: Tuple | List | Tensor,
+         save_path: Optional[Path] = None,
+         ignore_alpha: bool = True) -> None:
 
     # two batches of images
     if (isinstance(b, tuple) or
@@ -296,6 +298,8 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
 
     # single image
     elif isinstance(b, Tensor) and len(b.shape) == 3:
+        if ignore_alpha and b.shape[0] == 4:
+            b = b[:3, :, :]
         im = tensor_to_image(b)
         if save_path is not None:
             if not save_path.exists():
@@ -307,6 +311,8 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
 
     # batch of images
     elif isinstance(b, Tensor) and len(b.shape) == 4:
+        if ignore_alpha and b.shape[1] == 4:
+            b = b[:, :3, :, :]
         f, ax = plt.subplots(1, len(b), figsize=(20, 20))
         for i, img in enumerate(b):
             img = tensor_to_image(img)
@@ -322,34 +328,6 @@ def show(b: Tuple | List | Tensor, save_path: Optional[Path] = None) -> None:
         raise ValueError("Invalid input")
 
     return
-
-
-def tripod_transforms(sample: Image.Image) -> Tuple[Tensor, Tensor]:
-    # randomly crop 128
-    common_transforms = T.Compose([
-        T.RandomCrop(128),
-    ])
-    sample = common_transforms(sample)
-    target = sample.copy()
-
-    # downscale sample
-    sample = T.Resize(64)(sample)
-
-    # albumentations
-    sample_transforms = A.Compose([
-        # A.Downscale(interpolation=cv2.INTER_LINEAR),
-        A.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.5)),
-        A.GaussianBlur(blur_limit=(3, 7), sigma_limit=(0.1, 3)),
-        # albumentations.pytorch.transforms.ToTensorV2(),
-    ])
-    sample = sample_transforms(image=np.array(sample))["image"]
-
-    # convert both to tensors
-    totensor = T.ToTensor()
-    sample_tensor = totensor(sample)
-    target_tensor = totensor(target)
-
-    return sample_tensor, target_tensor
 
 
 # flowers_test = torchvision.datasets.Flowers102("./data",

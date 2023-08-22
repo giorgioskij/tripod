@@ -3,6 +3,7 @@ from typing import Optional, List
 import torch
 from torch import Tensor, nn
 from torchvision import models
+from torchvision.transforms import functional as F
 from torchinfo import summary
 from unet import DoubleConv
 
@@ -151,6 +152,11 @@ class UResNet(L.LightningModule):
                 x6_up,
                 output_size=(x6_up.shape[-2] * 2, x6_up.shape[-1] * 2),
             )  # (3, 128, 128)
+
+        if self.shrink_output:
+            output = F.resize(output,
+                              [3, output.size(1) // 2,
+                               output.size(2) // 2])
 
         return output
 
