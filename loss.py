@@ -24,7 +24,7 @@ class TripodLoss(nn.Module):
         self.vgg.to(X.device)
         with torch.no_grad():
             target_vgg = self.vgg(Y)
-        x_vgg = self.vgg(X)
+            x_vgg = self.vgg(X)
         feature_loss = self.mae(x_vgg, target_vgg)
 
         pixel_loss = self.mse(X, Y)  # pixel loss

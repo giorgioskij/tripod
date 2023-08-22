@@ -329,13 +329,15 @@ if __name__ == "__main__":
     # m = test_model()
     epochs = 250
 
-    # m = UResNet(loss_fn=nn.MSELoss(),
-    #             learning_rate=1e-4,
-    #             use_espcn=True,
-    #             avoid_deconv=True)
+    m = UResNet(loss_fn=TripodLoss(),
+                learning_rate=1e-4,
+                use_espcn=True,
+                avoid_deconv=True,
+                use_alpha=True,
+                double_image_size=False)
     # trainer = setup_trainer(n_epochs=epochs, run_name="k_v2")
-    d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
-    d.setup()
+    # d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
+    # d.setup()
     # trainer.fit(model=m, datamodule=d)
 
     # train encoder and decoder

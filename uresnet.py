@@ -19,6 +19,8 @@ class UResNet(L.LightningModule):
         use_espcn: bool = False,
         use_espcn_activations: bool = True,
         avoid_deconv: bool = False,
+        use_alpha: bool = False,
+        double_image_size: bool = False,
     ):
         super().__init__()
         # hyperparams
@@ -29,9 +31,20 @@ class UResNet(L.LightningModule):
         self.freeze_encoder: bool = freeze_encoder
         self.use_espcn: bool = use_espcn
         self.avoid_deconv: bool = avoid_deconv
+        self.use_alpha: bool = use_alpha
+        self.double_image_size: bool = double_image_size
 
         # encoder - pretrained resnet
         self.encoder = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
+        if self.use_alpha:
+            self.conv1 = nn.Conv2d(4,
+                                   64,
+                                   kernel_size=7,
+                                   stride=2,
+                                   padding=3,
+                                   bias=False)
+        else:
+            self.conv1 = self.encoder.conv1
 
         # decoder
         self.pixel_shuffle = nn.PixelShuffle(2)
@@ -79,7 +92,8 @@ class UResNet(L.LightningModule):
     def forward(self, x: Tensor) -> Tensor:
         # all comments refer to an example input of size (3, 64, 64)
 
-        x64 = self.encoder.conv1(x)  # (64, 32, 32)
+        # x64 = self.encoder.conv1(x)  # (64, 32, 32)
+        x64 = self.conv1(x)  # (64, 32, 32)
         x64 = self.encoder.bn1(x64)
         x64 = self.encoder.relu(x64)
         x64 = self.encoder.maxpool(x64)  # (64, 16, 16)
@@ -125,8 +139,9 @@ class UResNet(L.LightningModule):
                 output_size=(x64_up.shape[-2] * 2, x64_up.shape[-1] * 2),
             )  # (3, 64, 64)
 
-        # concatenate decoded (3, 64x64) and input (3, 64x64)
-        x6_up = torch.cat((x3_up, x), dim=-3)  # (6, 64, 64)
+        # concatenate decoded (3, 64x64) and input (3, 64x64). (If input has 4
+        # channels, ignore the 4th)
+        x6_up = torch.cat((x3_up, x[:, :3, :, :]), dim=-3)  # (6, 64, 64)
 
         if self.use_espcn:
             # first conv
@@ -153,10 +168,11 @@ class UResNet(L.LightningModule):
                 output_size=(x6_up.shape[-2] * 2, x6_up.shape[-1] * 2),
             )  # (3, 128, 128)
 
-        if self.shrink_output:
+        if not self.double_image_size:
             output = F.resize(output,
-                              [3, output.size(1) // 2,
-                               output.size(2) // 2])
+                              [output.size(-1) // 2,
+                               output.size(-2) // 2],
+                              antialias=True)
 
         return output
 
