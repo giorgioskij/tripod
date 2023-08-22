@@ -228,7 +228,7 @@ class TripodDataModule(L.LightningDataModule):
         return torch.utils.data.DataLoader(self.train,
                                            batch_size=batch_size,
                                            shuffle=True,
-                                           num_workers=0)
+                                           num_workers=10)
 
     def val_dataloader(self, batch_size=None):
         if batch_size is None:
@@ -236,7 +236,7 @@ class TripodDataModule(L.LightningDataModule):
         return torch.utils.data.DataLoader(self.val,
                                            batch_size=batch_size,
                                            shuffle=False,
-                                           num_workers=0)
+                                           num_workers=10)
 
     def test_dataloader(self, batch_size=None):
         raise NotImplementedError()
