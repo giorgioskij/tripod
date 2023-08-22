@@ -335,10 +335,10 @@ if __name__ == "__main__":
                 avoid_deconv=True,
                 use_alpha=True,
                 double_image_size=False)
-    # trainer = setup_trainer(n_epochs=epochs, run_name="k_v2")
-    # d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
+    trainer = setup_trainer(n_epochs=epochs, run_name="alpha_perceptual_kolnet")
+    d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
     # d.setup()
-    # trainer.fit(model=m, datamodule=d)
+    trainer.fit(model=m, datamodule=d)
 
     # train encoder and decoder
     # trainer = setup_trainer(
