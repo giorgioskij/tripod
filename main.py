@@ -221,20 +221,20 @@ def setup_trainer(
 
     ckp = ModelCheckpoint(
         # dirpath=ckp_path,
-        output_dir,
+        dirpath=output_dir,
         save_top_k=2,
         monitor="valid_loss",
         filename="{epoch}-{valid_loss:.3f}",
         save_last=True,
     )
     int_ckp = OnExceptionCheckpoint(
-        dirpath=ckp_path,  #type:ignore
+        dirpath=output_dir,  #type:ignore
         filename="interrupted")
     callbacks = [ckp, int_ckp]
 
     if save_images_every > 0:
         save_images_callback = SaveImages(
-            save_path=ckp_path / "images",  #  type:ignore
+            save_path=output_dir / "images",  #  type:ignore
             every_n_epochs=10)
         callbacks.append(save_images_callback)
 

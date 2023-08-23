@@ -2,13 +2,16 @@
     Finetune the encoder (decoder already trained for 250 epochs) on patches of 
     128 pixels.
 """
+import sys
 
-from pathlib import Path
+sys.path.append("../")
+
+import config as cfg
 from main import train
 import preprocessing
 
-train(model_path=(Path("checkpoints") / "alpha_perceptual_kolnet" /
+train(model_path=(cfg.CKP_PATH / "alpha_perceptual_kolnet" /
                   "epoch=236-valid_loss=0.023.ckpt"),
       preprocessor=preprocessing.unsharpen,
-      n_epochs=250,
+      n_epochs=1,
       run_name="alpha_perceptual_kolnet_finetune")
