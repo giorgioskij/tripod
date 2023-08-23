@@ -4,7 +4,7 @@ import os
 import warnings
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Dict, Callable
 
 import lightning as L
 import torch
@@ -83,27 +83,27 @@ def load_datamodule(dataset: Dataset,
     return d
 
 
-def train(
-    model: L.LightningModule,
-    datamodule: TripodDataModule,
-    root_dir: str | Path,
-    epochs: int = 1,
-    version: int = 0,
-    restart_from: Optional[str | Path] = None,
-):
-    trainer = L.Trainer(
-        default_root_dir=root_dir,
-        accelerator="auto",
-        max_epochs=epochs,
-        logger=loggers.CSVLogger(save_dir="./", version=version),
-        precision="16-mixed",
-        detect_anomaly=True,
-        gradient_clip_val=1,
-        check_val_every_n_epoch=1,
-        log_every_n_steps=0,
-    )
-    trainer.fit(model=model, datamodule=datamodule, ckpt_path=str(restart_from))
-    return trainer
+# def train(
+#     model: L.LightningModule,
+#     datamodule: TripodDataModule,
+#     root_dir: str | Path,
+#     epochs: int = 1,
+#     version: int = 0,
+#     restart_from: Optional[str | Path] = None,
+# ):
+#     trainer = L.Trainer(
+#         default_root_dir=root_dir,
+#         accelerator="auto",
+#         max_epochs=epochs,
+#         logger=loggers.CSVLogger(save_dir="./", version=version),
+#         precision="16-mixed",
+#         detect_anomaly=True,
+#         gradient_clip_val=1,
+#         check_val_every_n_epoch=1,
+#         log_every_n_steps=0,
+#     )
+#     trainer.fit(model=model, datamodule=datamodule, ckpt_path=str(restart_from))
+#     return trainer
 
 
 def demo_model(model: L.LightningModule,
@@ -201,24 +201,27 @@ class SaveImages(Callback):
 #     return m, d
 
 
-def setup_trainer(ckp_path: Optional[Path] = None,
-                  n_epochs: int = 1,
-                  save_images_every: int = 10,
-                  log: bool = True,
-                  run_name: Optional[str] = None) -> L.Trainer:
+def setup_trainer(
+        n_epochs: int = 1,
+        save_images_every: int = 10,
+        #   log: bool = True,
+        run_name: Optional[str] = None) -> L.Trainer:
 
-    if ckp_path is None and run_name is None:
-        raise ValueError("Either ckp_path or run_name must be specified")
-    if ckp_path is None and run_name is not None:
-        ckp_path = Path("checkpoints") / run_name
-    if run_name is None and ckp_path is not None:
-        run_name = ckp_path.name
+    output_dir: Path = Path("checkpoints") / (run_name or "unnamed_run")
 
     logger = (loggers.WandbLogger(project="tripod", name=run_name)
-              if log else False)
+              if run_name else False)
+
+    # if ckp_path is None and run_name is None:
+    #     raise ValueError("Either ckp_path or run_name must be specified")
+    # if ckp_path is None and run_name is not None:
+    #     ckp_path = Path("checkpoints") / run_name
+    # if run_name is None and ckp_path is not None:
+    #     run_name = ckp_path.name
 
     ckp = ModelCheckpoint(
-        dirpath=ckp_path,
+        # dirpath=ckp_path,
+        output_dir,
         save_top_k=2,
         monitor="valid_loss",
         filename="{epoch}-{valid_loss:.3f}",
@@ -339,10 +342,11 @@ if __name__ == "__main__":
                 use_espcn=True,
                 avoid_deconv=True,
                 use_alpha=True,
-                double_image_size=False)
+                double_image_size=False,
+                freeze_encoder=False)
+
     trainer = setup_trainer(n_epochs=epochs, run_name="alpha_perceptual_kolnet")
     d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
-    # d.setup()
     trainer.fit(model=m, datamodule=d)
 
     # train encoder and decoder
@@ -360,3 +364,21 @@ if __name__ == "__main__":
     #                      sample_patch_size=64,
     #                      target_patch_size=128)
     # trainer.fit(model=m, datamodule=d)
+
+
+def train(preprocessor: Callable,
+          model_path: Optional[Path] = None,
+          model_args: Optional[Dict] = None,
+          n_epochs: int = 1,
+          run_name: Optional[str] = None):
+
+    if model_path is not None:
+        m = UResNet.load_from_checkpoint(model_path)
+    elif model_args is not None:
+        m = UResNet(**model_args)
+    else:
+        raise ValueError("Either model args or model path must be specified")
+
+    trainer = setup_trainer(n_epochs=n_epochs, run_name=run_name)
+    d = TripodDataModule(sample_target_generator=preprocessor)
+    trainer.fit(model=m, datamodule=d)
