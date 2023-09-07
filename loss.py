@@ -8,9 +8,10 @@ from torchinfo import summary
 
 class TripodLoss(nn.Module):
 
-    def __init__(self):
+    def __init__(self, weight: float = 0.5):
         super().__init__()
         # self.ssim = SSIM(data_range=1, nonnegative_ssim=True)
+        self.weight: float = weight
         self.mae = nn.L1Loss()
         self.mse = nn.MSELoss()
 
@@ -31,5 +32,6 @@ class TripodLoss(nn.Module):
 
         # ssim_loss = self.ssim(X, Y.to(X.dtype))  # ssim loss
 
-        loss = feature_loss * 0.5 + pixel_loss * 0.5
+        # loss = feature_loss * 0.5 + pixel_loss * 0.5
+        loss = feature_loss * self.weight + pixel_loss * (1 - self.weight)
         return loss
