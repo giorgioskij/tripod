@@ -47,16 +47,17 @@ class SSIMLoss(nn.Module):
 
     def __init__(self, weight: float = 0.5):
         super().__init__()
-        self.ssim = SSIM(data_range=1, nonnegative_ssim=True)
+        self.ssim = SSIM(
+            data_range=1,
+            nonnegative_ssim=True,
+        )
         self.weight: float = weight
         self.mse = nn.MSELoss()
 
     def forward(self, X: Tensor, Y: Tensor) -> Tensor:
 
         pixel_loss = self.mse(X, Y)  # pixel loss
-        ssim_loss = self.ssim(X, Y)
-
-        # ssim_loss = self.ssim(X, Y.to(X.dtype))  # ssim loss
+        ssim_loss = 1 - self.ssim(X, Y.to(X.dtype))  # ssim loss
 
         # loss = feature_loss * 0.5 + pixel_loss * 0.5
         loss = ssim_loss * self.weight + pixel_loss * (1 - self.weight)
@@ -98,3 +99,5 @@ def test_loss():
         mse = SSIMLoss(weight=0)(sample, target)
         mse2 = PerceptualLoss(weight=0)(sample, target)
         print(f"{ssim=}, {perceptual=}, {mse=}, {mse2=}")
+
+        print(f"perfect match: ssim = {SSIMLoss(weight=1)(sample, sample)}")

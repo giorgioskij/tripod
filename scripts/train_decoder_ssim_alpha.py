@@ -4,9 +4,9 @@
     LOSS:           SSIM only 
     INTENSITY:      0.2 
     EPOCHS:         250
-    PREPROCESSING:  only crop (rotations create black images that can be used to cheat)
+    PREPROCESSING:  crop and rotate
 
-    Training 2023-09-07 18:37
+    Training 2023-09-07 19:26
 """
 
 import config
@@ -16,9 +16,9 @@ import preprocessing
 
 preprocessor = preprocessing.Unsharpen(patch_size=128,
                                        max_amount=0.2,
-                                       rotate=False)
+                                       rotate=True)
 
-loss_fn = loss.SSIMLoss(weight=0.5)
+loss_fn = loss.SSIMLoss(weight=1.0)
 
 model_args = {
     "loss_fn": loss_fn,
