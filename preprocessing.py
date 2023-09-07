@@ -4,8 +4,8 @@ network, including creation of training images and data augmentation.
 """
 
 from PIL import Image
-from typing import Tuple, Optional
-from torch import Tensor
+from typing import Tuple, Optional, List
+from torch import Tensor, nn
 from torchvision import transforms as T
 import albumentations as A
 import numpy as np
@@ -20,36 +20,52 @@ from data import show
 TEST_IMAGE_PATH = "./datasets/DIV2K/DIV2K_valid_HR/0801.png"
 
 
-def unsharpen(sample: Image.Image,
-              amount: Optional[float] = None,
-              patch_size: int = 128) -> Tuple[Tensor, Tensor]:
+class Unsharpen:
 
-    if amount is None:
-        amount = random.random()
-    if amount < 0 or amount > 1:
-        raise ValueError("amount has to be between 0 and 1")
+    def __init__(self,
+                 patch_size: int = 128,
+                 max_amount: float = 0.1,
+                 rotate: bool = True):
+        self.patch_size: int = patch_size
+        self.max_amount: float = max_amount
+        self.rotate: bool = rotate
 
-    # random crop
-    sample = T.RandomCrop(patch_size)(sample)
-    target = sample.copy()
+        transforms: List[nn.Module] = [T.RandomCrop(self.patch_size)]
+        if self.rotate:
+            transforms.insert(0, (T.RandomRotation(180)))
 
-    # kernel size from 0% to 10% of the image size, based on amount parameter
-    kernel_size = int(round(patch_size * 0.1 * amount))
+        self.transformer = T.Compose(transforms)
 
-    # motion blur
-    if kernel_size > 2:
-        sample = MotionBlur(blur_limit=(kernel_size, kernel_size),
-                            always_apply=True)(image=np.array(sample))["image"]
+    def __call__(self,
+                 sample: Image.Image,
+                 amount: Optional[float] = None) -> Tuple[Tensor, Tensor]:
 
-    to_tensor = T.ToTensor()
+        if amount is None:
+            amount = random.random()
+        if amount < 0 or amount > 1:
+            raise ValueError("amount has to be between 0 and 1")
 
-    sample_tensor = to_tensor(sample)
-    target_tensor = to_tensor(target)
-    # add amount value to alpha channel of image
-    sample_tensor = torch.cat(
-        (sample_tensor, torch.ones(1, *sample_tensor.shape[-2:]) * amount),
-        dim=0)
-    return sample_tensor, target_tensor
+        sample = self.transformer(sample)
+        target = sample.copy()
+
+        # kernel size from 0% to 10% of the image size, based on amount parameter
+        kernel_size = int(round(self.patch_size * self.max_amount * amount))
+
+        # motion blur
+        if kernel_size > 2:
+            sample = MotionBlur(
+                blur_limit=(kernel_size, kernel_size),
+                always_apply=True)(image=np.array(sample))["image"]
+
+        to_tensor = T.ToTensor()
+
+        sample_tensor = to_tensor(sample)
+        target_tensor = to_tensor(target)
+        # add amount value to alpha channel of image
+        sample_tensor = torch.cat(
+            (sample_tensor, torch.ones(1, *sample_tensor.shape[-2:]) * amount),
+            dim=0)
+        return sample_tensor, target_tensor
 
 
 def test_albumentation(transform, crop=True):
@@ -60,6 +76,17 @@ def test_albumentation(transform, crop=True):
     plt.imshow(im)  #type: ignore
     plt.show()
     plt.imshow(transform(image=np.array(im))["image"])
+    plt.show()
+
+
+def test_preprocessor():
+    im = Image.open(TEST_IMAGE_PATH)
+    plt.imshow(im)  # type: ignore
+    plt.show()
+
+    preprocessor = Unsharpen(patch_size=1024)
+    im = np.array(preprocessor(im)[0][:3, ...].permute(1, 2, 0))
+    plt.imshow(im)
     plt.show()
 
 
@@ -92,7 +119,6 @@ def tripod_transforms(sample: Image.Image) -> Tuple[Tensor, Tensor]:
     return sample_tensor, target_tensor
 
 
-from albumentations import Blur
 from typing import Union, Dict, Any
 from albumentations.augmentations import functional as FMain
 import cv2
@@ -100,7 +126,7 @@ import cv2
 ScaleIntType = Union[int, Tuple[int, int]]
 
 
-class MotionBlur(Blur):
+class MotionBlur(A.Blur):
     """Modification to the Albumentation class MotionBlur. Here, the length of
     the blur line is fixed so that controlling the kernel size via the 
     blur_limit parameter directly controls the intensity of the effect, instead

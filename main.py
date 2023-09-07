@@ -1,4 +1,5 @@
 # Project: tripod
+import config as cfg
 
 import os
 import warnings
@@ -307,20 +308,22 @@ def hyperparam_sweep():
 
 
 def test_model():
-    checkpoint = Path("checkpoints/k_nodeconv/epoch=901-valid_loss=0.002.ckpt")
-    output_path = Path("outputs/kolnet_v2/")
+    checkpoint: Path = cfg.CKP_PATH / "alpha_perceptual_kolnet_finetune" / "last.ckpt"
+    output_path = None
 
-    d = TripodDataModule(sample_target_generator=tripod_transforms)
+    preprocessor = preprocessing.Unsharpen()
+    d = TripodDataModule(sample_target_generator=preprocessor)
     d.setup()
-    m = UResNet.load_from_checkpoint(checkpoint,)
-    trainer = L.Trainer(precision="16-mixed", logger=False)
-    trainer.validate(model=m, datamodule=d)
+    m = UResNet.load_from_checkpoint(checkpoint,
+                                     map_location=torch.device("cpu"))
+    # trainer = L.Trainer(precision="16-mixed", logger=False)
+    # trainer.validate(model=m, datamodule=d)
 
     b = d.demo_batch(train=False)
     with torch.no_grad():
         pred = m(b[0].to(m.device))
-    show(b, save_path=output_path)
-    show(pred, save_path=output_path / "predictions")
+    show(b)
+    show(pred)
     return m
 
     # images = [
@@ -335,19 +338,20 @@ def test_model():
 
 if __name__ == "__main__":
     # m = test_model()
-    epochs = 250
+    # epochs = 250
+    pass
 
-    m = UResNet(loss_fn=TripodLoss(),
-                learning_rate=1e-4,
-                use_espcn=True,
-                avoid_deconv=True,
-                use_alpha=True,
-                double_image_size=False,
-                freeze_encoder=False)
+    # m = UResNet(loss_fn=TripodLoss(),
+    #             learning_rate=1e-4,
+    #             use_espcn=True,
+    #             avoid_deconv=True,
+    #             use_alpha=True,
+    #             double_image_size=False,
+    #             freeze_encoder=False)
 
-    trainer = setup_trainer(n_epochs=epochs, run_name="alpha_perceptual_kolnet")
-    d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
-    trainer.fit(model=m, datamodule=d)
+    # trainer = setup_trainer(n_epochs=epochs, run_name="alpha_perceptual_kolnet")
+    # d = TripodDataModule(sample_target_generator=preprocessing.unsharpen)
+    # trainer.fit(model=m, datamodule=d)
 
     # train encoder and decoder
     # trainer = setup_trainer(
