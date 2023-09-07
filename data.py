@@ -235,7 +235,7 @@ class TripodDataModule(L.LightningDataModule):
             batch_size = self.batch_size_test
         return torch.utils.data.DataLoader(self.val,
                                            batch_size=batch_size,
-                                           shuffle=False,
+                                           shuffle=True,
                                            num_workers=10)
 
     def test_dataloader(self, batch_size=None):

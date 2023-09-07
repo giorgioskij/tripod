@@ -1,22 +1,24 @@
 """
-    Train the decoder only on patches of 128 pixels with higher unsharpen 
-    intensity (0.2) and random rotations.
+    TARGET:     decoder only (encoder pretrained on imagenet)
+    PATCHES:    128 pixels
+    LOSS:       SSIM only 
+    INTENSITY:  0.2 
+    EPOCHS:     250
 
-    Also, the perceptual loss is given a lower weigtht (0.2 instead of 0.5)
-
-    Training 2023-09-07 16:48
+    Training 2023-09-07 18:37
 """
 
 import config as cfg
-from loss import TripodLoss
+import loss
 from main import train
 import preprocessing
 
 preprocessor = preprocessing.Unsharpen(patch_size=128, max_amount=0.2)
 
-perceptual_loss = TripodLoss(weight=0.2)
+loss_fn = loss.SSIMLoss(weight=1)
+
 model_args = {
-    "loss_fn": perceptual_loss,
+    "loss_fn": loss_fn,
     "learning_rate": 1e-3,
     "freeze_encoder": True,
     "use_espcn": True,
@@ -29,4 +31,4 @@ model_args = {
 train(model_args=model_args,
       preprocessor=preprocessor,
       n_epochs=250,
-      run_name="alpha_perceptual_kolnet_harder")
+      run_name="alpha_perceptual_kolnet_ssim")

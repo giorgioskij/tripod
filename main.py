@@ -22,7 +22,7 @@ from data import Dataset, TripodDataModule, show, tensor_to_image
 from preprocessing import tripod_transforms
 from edsr import EDSR
 from uresnet import UResNet
-from loss import TripodLoss
+from loss import PerceptualLoss
 from uresnet import UResNet
 from unet import PoolingStrategy, UNet
 import preprocessing
@@ -35,6 +35,8 @@ warnings.filterwarnings("ignore", ".*exists and is not empty.*")
 
 torch.set_float32_matmul_precision("medium")
 
+plt.switch_backend('agg')
+
 
 class Architecture(Enum):
     UNET = auto()
@@ -44,7 +46,7 @@ class Architecture(Enum):
 
 class Loss(Enum):
     MSE = nn.MSELoss()
-    TRIPOD = TripodLoss()
+    TRIPOD = PerceptualLoss()
     L1 = nn.L1Loss()
 
 
