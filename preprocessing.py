@@ -25,12 +25,16 @@ class Unsharpen:
     def __init__(self,
                  patch_size: int = 128,
                  max_amount: float = 0.1,
+                 flip: bool = True,
                  rotate: bool = True):
         self.patch_size: int = patch_size
         self.max_amount: float = max_amount
         self.rotate: bool = rotate
+        self.flip: bool = flip
 
         transforms: List[nn.Module] = [T.RandomCrop(self.patch_size)]
+        if self.flip:
+            transforms.append(T.RandomHorizontalFlip())
         if self.rotate:
             transforms.insert(0, (T.RandomRotation(180)))
 

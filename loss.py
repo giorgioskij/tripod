@@ -36,9 +36,6 @@ class PerceptualLoss(nn.Module):
 
         pixel_loss = self.mse(X, Y)  # pixel loss
 
-        # ssim_loss = self.ssim(X, Y.to(X.dtype))  # ssim loss
-
-        # loss = feature_loss * 0.5 + pixel_loss * 0.5
         loss = feature_loss * self.weight + pixel_loss * (1 - self.weight)
         return loss
 
@@ -56,7 +53,7 @@ class SSIMLoss(nn.Module):
 
     def forward(self, X: Tensor, Y: Tensor) -> Tensor:
 
-        pixel_loss = self.mse(X, Y)  # pixel loss
+        pixel_loss = self.mse(X, Y) * 10  # pixel loss
         ssim_loss = 1 - self.ssim(X, Y.to(X.dtype))  # ssim loss
 
         # loss = feature_loss * 0.5 + pixel_loss * 0.5

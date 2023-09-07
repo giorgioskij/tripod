@@ -1,12 +1,12 @@
 """
     TARGET:         decoder only (encoder pretrained on imagenet)
     PATCHES:        128 pixels
-    LOSS:           SSIM only 
+    LOSS:           SSIM and MSE 50/50 (MSE multiplied by 10)
     INTENSITY:      0.2 
     EPOCHS:         250
-    PREPROCESSING:  crop and rotate
+    PREPROCESSING:  crop, flip and rotate
 
-    Training 2023-09-07 19:26
+    Training 2023-09-07 19:55
 """
 
 import config
@@ -18,7 +18,7 @@ preprocessor = preprocessing.Unsharpen(patch_size=128,
                                        max_amount=0.2,
                                        rotate=True)
 
-loss_fn = loss.SSIMLoss(weight=1.0)
+loss_fn = loss.SSIMLoss(weight=0.5)
 
 model_args = {
     "loss_fn": loss_fn,
