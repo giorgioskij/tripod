@@ -67,7 +67,7 @@ class TripodDataModule(L.LightningDataModule):
         self,
         dataset: Dataset = Dataset.DIV2K,
         data_dir: Path = Path("./datasets"),
-        batch_size: Optional[int] = None,
+        # batch_size: Optional[int] = None,
         batch_size_train: int = 16,
         batch_size_test: int = 64,
         sample_patch_size: int = 64,
@@ -103,10 +103,10 @@ class TripodDataModule(L.LightningDataModule):
         self.sample_target_generator: Optional[Callable[[Any], Tuple[
             Tensor, Tensor]]] = sample_target_generator
 
-        if batch_size is not None:
-            self.batch_size = batch_size
-            self.batch_size_train = batch_size
-            self.batch_size_test = batch_size
+        # if batch_size is not None:
+        #     self.batch_size = batch_size
+        #     self.batch_size_train = batch_size
+        #     self.batch_size_test = batch_size
         self.dataset: Dataset = dataset
 
     # def prepare_data(self) -> None:

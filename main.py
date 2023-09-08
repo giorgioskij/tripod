@@ -380,7 +380,8 @@ def train(
     n_epochs: int = 1,
     run_name: Optional[str] = None,
     unfreeze_model: bool = False,
-    batch_size: int = 16,
+    batch_size_train: int = 16,
+    batch_size_test: int = 64,
 ):
 
     if model is not None:
@@ -398,5 +399,6 @@ def train(
 
     trainer = setup_trainer(n_epochs=n_epochs, run_name=run_name)
     d = TripodDataModule(sample_target_generator=preprocessor,
-                         batch_size_train=batch_size)
+                         batch_size_train=batch_size_train,
+                         batch_size_test=batch_size_test)
     trainer.fit(model=m, datamodule=d)
