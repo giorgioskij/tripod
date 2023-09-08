@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch import nn
-from pytorch_msssim import SSIM
+from pytorch_msssim import SSIM, MS_SSIM
 from torchvision import models
 from torch import Tensor
 from torchinfo import summary
@@ -59,6 +59,12 @@ class SSIMLoss(nn.Module):
         # loss = feature_loss * 0.5 + pixel_loss * 0.5
         loss = ssim_loss * self.weight + pixel_loss * (1 - self.weight)
         return loss
+
+
+class MS_SSIMLoss(MS_SSIM):
+
+    def forward(self, img1, img2):
+        return 100 * (1 - super(MS_SSIM, self).forward(img1, img2))
 
 
 TEST_IMAGE_PATH = "./datasets/DIV2K/DIV2K_valid_HR/0801.png"
