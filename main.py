@@ -372,11 +372,14 @@ if __name__ == "__main__":
     # trainer.fit(model=m, datamodule=d)
 
 
-def train(preprocessor: Callable,
-          model_path: Optional[Path] = None,
-          model_args: Optional[Dict] = None,
-          n_epochs: int = 1,
-          run_name: Optional[str] = None):
+def train(
+    preprocessor: Callable,
+    model_path: Optional[Path] = None,
+    model_args: Optional[Dict] = None,
+    n_epochs: int = 1,
+    run_name: Optional[str] = None,
+    unfreeze_model: bool = False,
+):
 
     if model_path is not None:
         m = UResNet.load_from_checkpoint(model_path)
@@ -384,6 +387,10 @@ def train(preprocessor: Callable,
         m = UResNet(**model_args)
     else:
         raise ValueError("Either model args or model path must be specified")
+
+    if unfreeze_model:
+        for p in m.parameters():
+            p.requires_grad = True
 
     trainer = setup_trainer(n_epochs=n_epochs, run_name=run_name)
     d = TripodDataModule(sample_target_generator=preprocessor)

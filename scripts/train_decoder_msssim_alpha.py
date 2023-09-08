@@ -9,7 +9,7 @@
     Training 2023-09-08 12:00
 """
 
-import config
+import script_config
 import loss
 from main import train
 import preprocessing
