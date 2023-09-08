@@ -64,7 +64,7 @@ class SSIMLoss(nn.Module):
 class MS_SSIMLoss(MS_SSIM):
 
     def forward(self, img1, img2):
-        return 100 * (1 - super(MS_SSIM, self).forward(img1, img2))
+        return 100 * (1 - super(MS_SSIMLoss, self).forward(img1, img2))
 
 
 TEST_IMAGE_PATH = "./datasets/DIV2K/DIV2K_valid_HR/0801.png"
