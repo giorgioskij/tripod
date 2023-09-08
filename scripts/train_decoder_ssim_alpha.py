@@ -1,6 +1,6 @@
 """
     TARGET:         decoder only (encoder pretrained on imagenet)
-    PATCHES:        128 pixels
+    PATCHES:        256 pixels (minimum for ms_ssim is 161)
     LOSS:           MS_SSIM only
     INTENSITY:      0.2 
     EPOCHS:         250
@@ -14,7 +14,7 @@ import loss
 from main import train
 import preprocessing
 
-preprocessor = preprocessing.Unsharpen(patch_size=128,
+preprocessor = preprocessing.Unsharpen(patch_size=256,
                                        max_amount=0.2,
                                        rotate=True)
 

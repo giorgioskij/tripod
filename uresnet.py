@@ -197,3 +197,18 @@ class UResNet(L.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
+
+
+if __name__ == "__main__":
+    n = UResNet(
+        loss_fn=nn.MSELoss(),
+        learning_rate=1e-3,
+        freeze_encoder=True,
+        use_espcn=True,
+        use_espcn_activations=True,
+        avoid_deconv=True,
+        use_alpha=True,
+        double_image_size=False,
+    )
+
+    summary(n, (16, 4, 180, 180))
