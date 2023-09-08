@@ -376,12 +376,15 @@ def train(
     preprocessor: Callable,
     model_path: Optional[Path] = None,
     model_args: Optional[Dict] = None,
+    model: Optional[UResNet] = None,
     n_epochs: int = 1,
     run_name: Optional[str] = None,
     unfreeze_model: bool = False,
 ):
 
-    if model_path is not None:
+    if model is not None:
+        m = model
+    elif model_path is not None:
         m = UResNet.load_from_checkpoint(model_path)
     elif model_args is not None:
         m = UResNet(**model_args)

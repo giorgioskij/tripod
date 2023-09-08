@@ -83,17 +83,6 @@ def test_albumentation(transform, crop=True):
     plt.show()
 
 
-def test_preprocessor():
-    im = Image.open(TEST_IMAGE_PATH)
-    plt.imshow(im)  # type: ignore
-    plt.show()
-
-    preprocessor = Unsharpen(patch_size=1024)
-    im = np.array(preprocessor(im)[0][:3, ...].permute(1, 2, 0))
-    plt.imshow(im)
-    plt.show()
-
-
 def tripod_transforms(sample: Image.Image) -> Tuple[Tensor, Tensor]:
     # randomly crop 128
     common_transforms = T.Compose([
@@ -197,3 +186,20 @@ class MotionBlur(A.Blur):
 
         # Normalize kernel
         return {"kernel": kernel.astype(np.float32) / np.sum(kernel)}
+
+
+def test_preprocessor():
+    im = Image.open(TEST_IMAGE_PATH)
+    plt.imshow(im)  # type: ignore
+    plt.show()
+
+    preprocessor = Unsharpen(patch_size=1024)
+    im = np.array(preprocessor(im)[0][:3, ...].permute(1, 2, 0))
+    plt.imshow(im)
+    plt.show()
+
+
+if __name__ == "__main__":
+    from data import TripodDataModule
+    d = TripodDataModule(sample_target_generator=Unsharpen())
+    d.setup()

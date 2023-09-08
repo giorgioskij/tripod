@@ -69,8 +69,16 @@ class MS_SSIMLoss(MS_SSIM):
 
 class SSIMLoss(SSIM):
 
+    def __init__(self,
+                 multiplier: int = 100,
+                 nonnegative_ssim: bool = True,
+                 data_range: float | int = 1.0):
+        super().__init__(nonnegative_ssim=nonnegative_ssim,
+                         data_range=data_range)  # type: ignore
+        self.multiplier = multiplier
+
     def forward(self, img1, img2):
-        return 100 * (1 - super(SSIMLoss, self).forward(img1, img2))
+        return self.multiplier * (1 - super(SSIMLoss, self).forward(img1, img2))
 
 
 TEST_IMAGE_PATH = "./datasets/DIV2K/DIV2K_valid_HR/0801.png"

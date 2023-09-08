@@ -37,7 +37,7 @@ train(
     "epoch=231-valid_loss=0.013.ckpt",
     model_args=model_args,
     preprocessor=preprocessor,
-    n_epochs=250,
+    n_epochs=500,
     run_name="alpha_kolnet_ssim_finetune",
     unfreeze_model=True,
 )
