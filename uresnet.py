@@ -211,4 +211,4 @@ if __name__ == "__main__":
         double_image_size=False,
     )
 
-    summary(n, (16, 4, 180, 180))
+    summary(n, (8, 4, 512, 512))

@@ -6,8 +6,9 @@
     EPOCHS:         500. Already done 250 training + 500 finetune
     PREPROCESSING:  crop, flip and rotate
     LEARNING RATE:  1e-4
+    BATCH SIZE:     8, due to memory reasons
 
-    Training 2023-09-08 19:51
+    Training 2023-09-08 20:21
 """
 
 import script_config
@@ -33,4 +34,5 @@ train(
     preprocessor=preprocessor,
     n_epochs=500,
     run_name="alpha_kolnet_ssim_512",
+    batch_size=6,
 )
