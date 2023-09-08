@@ -1,12 +1,12 @@
 """
     TARGET:         decoder only (encoder pretrained on imagenet)
     PATCHES:        256 pixels (minimum for ms_ssim is 161)
-    LOSS:           SSIM (non-negative) only
+    LOSS:           MS_SSIM only
     INTENSITY:      0.2 
     EPOCHS:         250
     PREPROCESSING:  crop, flip and rotate
 
-    Training 2023-09-08 15:23
+    Training 2023-09-08 12:00
 """
 
 import config
@@ -18,7 +18,7 @@ preprocessor = preprocessing.Unsharpen(patch_size=256,
                                        max_amount=0.2,
                                        rotate=True)
 
-loss_fn = loss.SSIMLoss()
+loss_fn = loss.MS_SSIMLoss()
 
 model_args = {
     "loss_fn": loss_fn,
@@ -34,4 +34,4 @@ model_args = {
 train(model_args=model_args,
       preprocessor=preprocessor,
       n_epochs=250,
-      run_name="alpha_perceptual_kolnet_ssim")
+      run_name="alpha_perceptual_kolnet_msssim")

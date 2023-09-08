@@ -40,7 +40,7 @@ class PerceptualLoss(nn.Module):
         return loss
 
 
-class SSIMLoss(nn.Module):
+class CustomSSIMLoss(nn.Module):
 
     def __init__(self, weight: float = 0.5):
         super().__init__()
@@ -65,6 +65,12 @@ class MS_SSIMLoss(MS_SSIM):
 
     def forward(self, img1, img2):
         return 100 * (1 - super(MS_SSIMLoss, self).forward(img1, img2))
+
+
+class SSIMLoss(SSIM):
+
+    def forward(self, img1, img2):
+        return 100 * (1 - super(SSIMLoss, self).forward(img1, img2))
 
 
 TEST_IMAGE_PATH = "./datasets/DIV2K/DIV2K_valid_HR/0801.png"
@@ -97,10 +103,11 @@ def test_loss():
 
         sample, target = sample[:3, ...].unsqueeze(0), target.unsqueeze(0)
 
-        ssim = SSIMLoss(weight=1)(sample, target)
+        ssim = CustomSSIMLoss(weight=1)(sample, target)
         perceptual = PerceptualLoss(weight=1)(sample, target)
-        mse = SSIMLoss(weight=0)(sample, target)
+        mse = CustomSSIMLoss(weight=0)(sample, target)
         mse2 = PerceptualLoss(weight=0)(sample, target)
         print(f"{ssim=}, {perceptual=}, {mse=}, {mse2=}")
 
-        print(f"perfect match: ssim = {SSIMLoss(weight=1)(sample, sample)}")
+        print(
+            f"perfect match: ssim = {CustomSSIMLoss(weight=1)(sample, sample)}")
