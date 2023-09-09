@@ -7,6 +7,7 @@ from PIL import Image
 from typing import Tuple, Optional, List
 from torch import Tensor, nn
 from torchvision import transforms as T
+from torchvision.transforms import functional as TF
 import albumentations as A
 import numpy as np
 import torch
@@ -26,11 +27,13 @@ class Unsharpen:
                  patch_size: int = 128,
                  max_amount: float = 0.1,
                  flip: bool = True,
-                 rotate: bool = True):
+                 rotate: bool = True,
+                 pad: bool = True):
         self.patch_size: int = patch_size
         self.max_amount: float = max_amount
         self.rotate: bool = rotate
         self.flip: bool = flip
+        self.pad: bool = pad
 
         transforms: List[nn.Module] = [T.RandomCrop(self.patch_size)]
         if self.flip:
@@ -49,7 +52,22 @@ class Unsharpen:
         if amount < 0 or amount > 1:
             raise ValueError("amount has to be between 0 and 1")
 
+        # if image is smaller than patch size, apply padding
+        pad_height = max(0, self.patch_size - sample.height)
+        pad_width = max(0, self.patch_size - sample.width)
+        pad_top = pad_height // 2
+        pad_bot = pad_height - pad_top
+        pad_right = pad_width // 2
+        pad_left = pad_width - pad_right
+
+        sample = TF.pad(
+            sample,  #type: ignore
+            [pad_left, pad_top, pad_right, pad_bot])
+
+        # basic transforms: crop, rotate
         sample = self.transformer(sample)
+
+        # copy the sample to use as a target
         target = sample.copy()
 
         # kernel size from 0% to 10% of the image size, based on amount parameter
@@ -193,13 +211,15 @@ def test_preprocessor():
     plt.imshow(im)  # type: ignore
     plt.show()
 
-    preprocessor = Unsharpen(patch_size=1024)
+    preprocessor = Unsharpen(patch_size=2000)
     im = np.array(preprocessor(im)[0][:3, ...].permute(1, 2, 0))
     plt.imshow(im)
     plt.show()
 
 
 if __name__ == "__main__":
-    from data import TripodDataModule
-    d = TripodDataModule(sample_target_generator=Unsharpen())
-    d.setup()
+    # from data import TripodDataModule
+    # d = TripodDataModule(sample_target_generator=Unsharpen())
+    # d.setup()
+
+    im = Image.open(TEST_IMAGE_PATH)
