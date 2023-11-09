@@ -249,7 +249,7 @@ def setup_trainer(
         # dirpath=ckp_path,
         dirpath=output_dir,
         save_top_k=2,
-        monitor="valid_loss",
+        monitor="valid/global_loss",
         filename="{epoch}-{valid_loss:.3f}",
         save_last=True,
     )

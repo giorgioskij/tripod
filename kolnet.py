@@ -188,15 +188,15 @@ class Kolnet(L.LightningModule):
         loss = self.loss_fn(prediction, y)
         if isinstance(loss, Tuple):
             loss, feature_loss, pixel_loss = loss
-            self.log(f"{prefix}/_perceptual_loss", feature_loss, prog_bar=False)
-            self.log(f"{prefix}/_pixel_loss", pixel_loss, prog_bar=False)
+            self.log(f"{prefix}/perceptual_loss", feature_loss, prog_bar=False)
+            self.log(f"{prefix}/pixel_loss", pixel_loss, prog_bar=False)
 
-        self.log(f"{prefix}/_loss", loss, prog_bar=True)
+        self.log(f"{prefix}/global_loss", loss, prog_bar=True)
 
         for metric_name, metric_fn in self.metrics.items():
             with torch.no_grad():
                 metric_value = metric_fn(prediction, y)
-            self.log(f"{prefix}/_{metric_name}", metric_value, prog_bar=True)
+            self.log(f"{prefix}/{metric_name}", metric_value, prog_bar=True)
         return loss
 
     def training_step(self, batch, batch_idx):
