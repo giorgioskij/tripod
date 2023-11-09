@@ -89,7 +89,7 @@ class Kolnet(L.LightningModule):
         if self.freeze_encoder:
             for param in self.encoder.parameters():
                 param.requires_grad = False
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["metrics"])
 
     def forward(self, x: Tensor) -> Tensor:
         # all comments refer to an example input of size (3, 64, 64)
