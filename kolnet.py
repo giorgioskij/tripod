@@ -1,5 +1,5 @@
 import lightning as L
-from typing import Optional, List
+from typing import Optional, List, Tuple
 import torch
 from torch import Tensor, nn
 from torchvision import models
@@ -9,18 +9,19 @@ from unet import DoubleConv
 
 
 # Custom U-Net with ResNet34 (pretrained on Imagenet) as an encoder
-class UResNet(L.LightningModule):
+class Kolnet(L.LightningModule):
 
     def __init__(
-        self,
-        loss_fn: nn.Module = nn.L1Loss(),
-        learning_rate: float = 1e-3,
-        freeze_encoder: bool = True,
-        use_espcn: bool = False,
-        use_espcn_activations: bool = True,
-        avoid_deconv: bool = False,
-        use_alpha: bool = False,
-        double_image_size: bool = False,
+            self,
+            loss_fn: nn.Module = nn.L1Loss(),
+            learning_rate: float = 1e-3,
+            freeze_encoder: bool = True,
+            use_espcn: bool = False,
+            use_espcn_activations: bool = True,
+            avoid_deconv: bool = False,
+            use_alpha: bool = False,
+            double_image_size: bool = False,
+            metrics: nn.ModuleDict = nn.ModuleDict(),
     ):
         super().__init__()
         # hyperparams
@@ -33,6 +34,7 @@ class UResNet(L.LightningModule):
         self.avoid_deconv: bool = avoid_deconv
         self.use_alpha: bool = use_alpha
         self.double_image_size: bool = double_image_size
+        self.metrics: nn.ModuleDict = metrics
 
         # encoder - pretrained resnet
         self.encoder = models.resnet34(weights=models.ResNet34_Weights.DEFAULT)
@@ -174,13 +176,27 @@ class UResNet(L.LightningModule):
                                output.size(-2) // 2],
                               antialias=True)
 
+        if output.isnan().any():
+            raise ArithmeticError("Detected nan values in kolnet forward")
+
         return output
 
     def _shared_step(self, batch: List[Tensor], prefix: str):
         x, y = batch
         prediction = self(x)
-        loss = self.loss_fn(prediction, y.to(prediction.dtype))
+        y = y.to(prediction.dtype)
+        loss = self.loss_fn(prediction, y)
+        if isinstance(loss, Tuple):
+            loss, feature_loss, pixel_loss = loss
+            self.log(f"{prefix}_perceptual_loss", feature_loss, prog_bar=False)
+            self.log(f"{prefix}_pixel_loss", pixel_loss, prog_bar=False)
+
         self.log(f"{prefix}_loss", loss, prog_bar=True)
+
+        for metric_name, metric_fn in self.metrics.items():
+            with torch.no_grad():
+                metric_value = metric_fn(prediction, y)
+            self.log(f"{prefix}_{metric_name}", metric_value, prog_bar=True)
         return loss
 
     def training_step(self, batch, batch_idx):
@@ -198,9 +214,21 @@ class UResNet(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
+    def sharpen(self, image: Tensor, amount: float):
+        if len(image.shape) != 3 or image.shape[0] != 3:
+            raise ValueError("Give image as a single tensor of shape [3, W, H]"
+                             f"\nReceived shape was {image.shape}")
+
+        alpha = torch.ones(image.shape[1:]).unsqueeze(0) * amount
+        image = torch.cat((image, alpha), dim=0)
+
+        image = image.unsqueeze(0).to(list(self.parameters())[0].device)
+
+        return self(image)
+
 
 if __name__ == "__main__":
-    n = UResNet(
+    n = Kolnet(
         loss_fn=nn.MSELoss(),
         learning_rate=1e-3,
         freeze_encoder=True,

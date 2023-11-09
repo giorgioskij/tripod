@@ -15,7 +15,7 @@ import loss
 from main import train
 import preprocessing
 import config as cfg
-from uresnet import UResNet
+from kolnet import Kolnet
 
 preprocessor = preprocessing.Unsharpen(patch_size=1024,
                                        max_amount=0.15,
@@ -23,9 +23,9 @@ preprocessor = preprocessing.Unsharpen(patch_size=1024,
 
 loss_fn = loss.SSIMLoss()
 
-model = UResNet.load_from_checkpoint(cfg.CKP_PATH / "alpha_kolnet_ssim_512" /
-                                     "epoch=323-valid_loss=0.013.ckpt",
-                                     learning_rate=4e-5)
+model = Kolnet.load_from_checkpoint(cfg.CKP_PATH / "alpha_kolnet_ssim_512" /
+                                    "epoch=323-valid_loss=0.013.ckpt",
+                                    learning_rate=4e-5)
 
 train(
     model=model,

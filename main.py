@@ -21,9 +21,9 @@ from PIL import Image
 from data import Dataset, TripodDataModule, show, tensor_to_image
 from preprocessing import tripod_transforms
 from edsr import EDSR
-from uresnet import UResNet
+from kolnet import Kolnet
 from loss import PerceptualLoss
-from uresnet import UResNet
+from kolnet import Kolnet
 from unet import PoolingStrategy, UNet
 import preprocessing
 
@@ -59,7 +59,7 @@ def load_model(architecture: Architecture,
                     bilinear_upsampling=True)
 
     elif architecture == Architecture.RES_UNET:
-        return UResNet(loss_fn=loss.value)
+        return Kolnet(loss_fn=loss.value)
 
     elif architecture == Architecture.EDSR:
         return EDSR(
@@ -154,10 +154,14 @@ def tune_params(m: L.LightningModule, d: TripodDataModule):
 # pytorch lightning callback that saves a batch of images every 5 epochs
 class SaveImages(Callback):
 
-    def __init__(self, save_path: Path, every_n_epochs: int = 1):
+    def __init__(self,
+                 save_path: Path,
+                 every_n_epochs: int = 1,
+                 log_every: Optional[int] = None):
         super().__init__()
         self.save_path = save_path
         self.every_n_epochs: int = every_n_epochs
+        self.log_every: Optional[int] = log_every
 
     def on_validation_batch_end(self,
                                 trainer: L.Trainer,
@@ -170,21 +174,29 @@ class SaveImages(Callback):
         if batch_idx != 0:
             return
 
-        if trainer.current_epoch % self.every_n_epochs == 0:
+        if trainer.global_step == 0 or (trainer.current_epoch +
+                                        1) % self.every_n_epochs == 0:
             os.makedirs(self.save_path, exist_ok=True)
             save_path = (
                 self.save_path /
                 f"epoch={trainer.current_epoch}-step={trainer.global_step}")
             predictions = pl_module(batch[0][:4].to(pl_module.device))
             f, ax = plt.subplots(3, 4, figsize=(20, 20))
+
+            columns = ["input", "output", "ground truth"]
+            data = []
             for i, (output, sample,
                     target) in enumerate(zip(predictions, batch[0], batch[1])):
                 if i > 3:
                     break
+                row = []
                 for x, image in enumerate([sample, output, target]):
                     if image.shape[-3] == 4:
                         image = image[..., :3, :, :]
-                    ax[x, i].imshow(tensor_to_image(image))
+                    image = tensor_to_image(image)
+                    ax[x, i].imshow(image)
+                    row.append(wandb.Image(image))
+                data.append(row)
 
                 # img1, img2, img3 = (tensor_to_image(sample),
                 #                     tensor_to_image(output),
@@ -192,8 +204,17 @@ class SaveImages(Callback):
                 # ax[0, i].imshow(img1)
                 # ax[1, i].imshow(img2)
                 # ax[2, i].imshow(img3)
+
             plt.savefig(save_path)
             plt.close()
+
+            if (self.log_every and
+                    trainer.current_epoch % self.log_every == 0 and
+                    pl_module.logger is not None):
+                pl_module.logger.log_table(  #type:ignore
+                    key=f"demos_step{trainer.global_step}",
+                    columns=columns,
+                    data=data)
 
 
 # def test_model(model_class: Type, ckp_path: Path | str):
@@ -207,6 +228,7 @@ class SaveImages(Callback):
 def setup_trainer(
         n_epochs: int = 1,
         save_images_every: int = 10,
+        log_images_every: int = 50,
         #   log: bool = True,
         run_name: Optional[str] = None) -> L.Trainer:
 
@@ -238,7 +260,8 @@ def setup_trainer(
     if save_images_every > 0:
         save_images_callback = SaveImages(
             save_path=output_dir / "images",  #  type:ignore
-            every_n_epochs=10)
+            every_n_epochs=save_images_every,
+            log_every=log_images_every)
         callbacks.append(save_images_callback)
 
     trainer = L.Trainer(
@@ -280,7 +303,7 @@ def hyperparam_sweep():
 
     # same, but with espcn and l2 loss
     try:
-        m = UResNet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
+        m = Kolnet(loss_fn=nn.MSELoss(), learning_rate=1e-4, use_espcn=True)
         trainer = setup_trainer(n_epochs=epochs, run_name="k_l2_espcn")
         d = TripodDataModule()
         trainer.fit(model=m, datamodule=d)
@@ -316,8 +339,8 @@ def test_model():
     preprocessor = preprocessing.Unsharpen()
     d = TripodDataModule(sample_target_generator=preprocessor)
     d.setup()
-    m = UResNet.load_from_checkpoint(checkpoint,
-                                     map_location=torch.device("cpu"))
+    m = Kolnet.load_from_checkpoint(checkpoint,
+                                    map_location=torch.device("cpu"))
     # trainer = L.Trainer(precision="16-mixed", logger=False)
     # trainer.validate(model=m, datamodule=d)
 
@@ -376,7 +399,7 @@ def train(
     preprocessor: Callable,
     model_path: Optional[Path] = None,
     model_args: Optional[Dict] = None,
-    model: Optional[UResNet] = None,
+    model: Optional[Kolnet] = None,
     n_epochs: int = 1,
     run_name: Optional[str] = None,
     unfreeze_model: bool = False,
@@ -387,9 +410,9 @@ def train(
     if model is not None:
         m = model
     elif model_path is not None:
-        m = UResNet.load_from_checkpoint(model_path)
+        m = Kolnet.load_from_checkpoint(model_path)
     elif model_args is not None:
-        m = UResNet(**model_args)
+        m = Kolnet(**model_args)
     else:
         raise ValueError("Either model args or model path must be specified")
 
@@ -402,3 +425,7 @@ def train(
                          batch_size_train=batch_size_train,
                          batch_size_test=batch_size_test)
     trainer.fit(model=m, datamodule=d)
+
+    wandb.finish()
+
+    return m

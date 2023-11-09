@@ -12,9 +12,12 @@ from torchvision import transforms as T
 from torchvision.datasets import MNIST, Flowers102
 import albumentations as A
 import cv2
+import math
 import numpy as np
 
 from div2k import DIV2K
+
+plt.axis('off')
 
 
 class Dataset(Enum):
@@ -282,7 +285,8 @@ def tensor_to_image(t: Tensor):
 
 def show(b: Tuple | List | Tensor,
          save_path: Optional[Path] = None,
-         ignore_alpha: bool = True) -> None:
+         ignore_alpha: bool = True,
+         title: Optional[str | List] = None) -> None:
 
     # two batches of images
     if (isinstance(b, tuple) or
@@ -297,7 +301,9 @@ def show(b: Tuple | List | Tensor,
             show(b[1])
 
     # single image
-    elif isinstance(b, Tensor) and len(b.shape) == 3:
+    elif isinstance(b, Tensor) and (len(b.shape) == 3 or
+                                    len(b.shape) == 4 and b.shape[0] == 1):
+        b = b.squeeze()
         if ignore_alpha and b.shape[0] == 4:
             b = b[:3, :, :]
         im = tensor_to_image(b)
@@ -313,15 +319,31 @@ def show(b: Tuple | List | Tensor,
     elif isinstance(b, Tensor) and len(b.shape) == 4:
         if ignore_alpha and b.shape[1] == 4:
             b = b[:, :3, :, :]
-        f, ax = plt.subplots(1, len(b), figsize=(20, 20))
+
+        # n_cols = 1 if len(b) <= 5 else 5 if len(b) % 5 == 0 else 4
+        n_cols = 2
+        n_rows = int(math.ceil(len(b) / n_cols))
+        dpi = 100
+        imwidth = b.shape[-1] * n_cols + b.shape[-1] // 10 * n_cols
+        imheight = b.shape[-2] * n_rows + b.shape[-2] // 10 * n_rows
+        f, ax = plt.subplots(n_rows,
+                             n_cols,
+                             figsize=(imwidth // dpi, imheight // dpi),
+                             dpi=dpi)
+
         for i, img in enumerate(b):
+            curr_ax = ax[i // n_cols][i % n_cols]
+            curr_ax.xaxis.set_visible(False)
+            curr_ax.yaxis.set_visible(False)
             img = tensor_to_image(img)
             if save_path is not None:
                 if not save_path.exists():
                     save_path.mkdir(parents=True)
                 plt.imsave(str(save_path / f"img{i}.png"), img)
             # ax[i].imshow(img, cmap="gray")
-            ax[i].imshow(img)
+            if title is not None and isinstance(title, List):
+                curr_ax.set_title(title[i])
+            curr_ax.imshow(img)
         plt.show()
 
     else:

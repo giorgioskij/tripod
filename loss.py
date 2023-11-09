@@ -1,3 +1,4 @@
+from typing import Tuple
 import numpy as np
 import torch
 from torch import nn
@@ -25,7 +26,7 @@ class PerceptualLoss(nn.Module):
             weights=models.VGG16_Weights.IMAGENET1K_FEATURES).features
         self.vgg.eval()
 
-    def forward(self, X: Tensor, Y: Tensor) -> Tensor:
+    def forward(self, X: Tensor, Y: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
 
         # VGG perceptual loss
         self.vgg.to(X.device)
@@ -37,7 +38,7 @@ class PerceptualLoss(nn.Module):
         pixel_loss = self.mse(X, Y)  # pixel loss
 
         loss = feature_loss * self.weight + pixel_loss * (1 - self.weight)
-        return loss
+        return loss, feature_loss, pixel_loss
 
 
 class CustomSSIMLoss(nn.Module):

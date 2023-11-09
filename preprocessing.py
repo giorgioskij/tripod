@@ -28,12 +28,14 @@ class Unsharpen:
                  max_amount: float = 0.1,
                  flip: bool = True,
                  rotate: bool = True,
-                 pad: bool = True):
+                 pad: bool = True,
+                 add_alpha_channel: bool = True):
         self.patch_size: int = patch_size
         self.max_amount: float = max_amount
         self.rotate: bool = rotate
         self.flip: bool = flip
         self.pad: bool = pad
+        self.add_alpha_channel: bool = add_alpha_channel
 
         transforms: List[nn.Module] = [T.RandomCrop(self.patch_size)]
         if self.flip:
@@ -84,9 +86,11 @@ class Unsharpen:
         sample_tensor = to_tensor(sample)
         target_tensor = to_tensor(target)
         # add amount value to alpha channel of image
-        sample_tensor = torch.cat(
-            (sample_tensor, torch.ones(1, *sample_tensor.shape[-2:]) * amount),
-            dim=0)
+        if self.add_alpha_channel:
+            sample_tensor = torch.cat(
+                (sample_tensor,
+                 torch.ones(1, *sample_tensor.shape[-2:]) * amount),
+                dim=0)
         return sample_tensor, target_tensor
 
 
