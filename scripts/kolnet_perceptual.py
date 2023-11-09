@@ -22,7 +22,7 @@ metrics = nn.ModuleDict({"ssim": ssim})
 
 model_args = {
     "loss_fn": loss_fn,
-    "learning_rate": 1e-4,
+    "learning_rate": 3e-5,
     "freeze_encoder": True,
     "use_espcn": True,
     "use_espcn_activations": True,
@@ -41,7 +41,7 @@ for i, patch_size in enumerate((256, 512, 1024)):
     unfreeze_model: bool = (patch_size == 256)
 
     if patch_size == 256:
-        batch_size_train, batch_size_test, n_epochs = 32, 64, 400
+        batch_size_train, batch_size_test, n_epochs = 32, 64, 200
     elif patch_size == 512:
         batch_size_train, batch_size_test, n_epochs = 16, 16, 200
     else:
