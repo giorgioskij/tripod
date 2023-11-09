@@ -229,6 +229,7 @@ def setup_trainer(
         n_epochs: int = 1,
         save_images_every: int = 10,
         log_images_every: int = 50,
+        precision: str = "32",
         #   log: bool = True,
         run_name: Optional[str] = None) -> L.Trainer:
 
@@ -269,7 +270,7 @@ def setup_trainer(
         accelerator="auto",
         max_epochs=n_epochs,
         logger=logger,
-        precision="16-mixed",
+        precision=precision,  #type: ignore
         gradient_clip_val=1,
         check_val_every_n_epoch=1,
         log_every_n_steps=5,
@@ -400,6 +401,7 @@ def train(
     model_path: Optional[Path] = None,
     model_args: Optional[Dict] = None,
     model: Optional[Kolnet] = None,
+    precision: str = "32",
     n_epochs: int = 1,
     run_name: Optional[str] = None,
     unfreeze_model: bool = False,
@@ -420,7 +422,9 @@ def train(
         for p in m.parameters():
             p.requires_grad = True
 
-    trainer = setup_trainer(n_epochs=n_epochs, run_name=run_name)
+    trainer = setup_trainer(n_epochs=n_epochs,
+                            run_name=run_name,
+                            precision=precision)
     d = TripodDataModule(sample_target_generator=preprocessor,
                          batch_size_train=batch_size_train,
                          batch_size_test=batch_size_test)

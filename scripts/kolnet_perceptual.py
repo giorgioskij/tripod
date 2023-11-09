@@ -50,6 +50,7 @@ for i, patch_size in enumerate((256, 512, 1024)):
     model = train(
         preprocessor,
         model=model,
+        precision="32",
         model_args=model_args,
         n_epochs=n_epochs,
         run_name=f"kolnet_perceptual_{patch_size}",
