@@ -41,7 +41,7 @@ for i, patch_size in enumerate((256, 512, 1024)):
     unfreeze_model: bool = (patch_size == 256)
 
     if patch_size == 256:
-        batch_size_train, batch_size_test, n_epochs = 64, 64, 400
+        batch_size_train, batch_size_test, n_epochs = 32, 64, 400
     elif patch_size == 512:
         batch_size_train, batch_size_test, n_epochs = 16, 16, 200
     else:
