@@ -208,9 +208,10 @@ class SaveImages(Callback):
             plt.savefig(save_path)
             plt.close()
 
-            if (self.log_every and
-                    trainer.current_epoch % self.log_every == 0 and
+            if (self.log_every is not None and
+                ((trainer.current_epoch + 1) % self.log_every == 0) and
                     pl_module.logger is not None):
+                print("Logging demos to wandb")
                 pl_module.logger.log_table(  #type:ignore
                     key=f"demos_step{trainer.global_step}",
                     columns=columns,

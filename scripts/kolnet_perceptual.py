@@ -10,15 +10,18 @@
 import script_config
 
 from torch import nn
+import torch
 
 import preprocessing
 import loss
 from main import train
 
-loss_fn = loss.PerceptualLoss()
-
+perceptual = loss.PerceptualLoss(weight=0.5)
 ssim = loss.SSIMLoss()
 metrics = nn.ModuleDict({"ssim": ssim})
+# metrics = nn.ModuleDict({"perceptual": perceptual})
+
+loss_fn = perceptual
 
 model_args = {
     "loss_fn": loss_fn,
@@ -38,14 +41,14 @@ for i, patch_size in enumerate((256, 512, 1024)):
                                            flip=True,
                                            rotate=True,
                                            add_alpha_channel=False)
-    unfreeze_model: bool = (patch_size == 256)
+    unfreeze_model: bool = (patch_size != 256)
 
     if patch_size == 256:
-        batch_size_train, batch_size_test, n_epochs = 32, 64, 200
+        batch_size_train, batch_size_test, n_epochs = 32, 64, 400
     elif patch_size == 512:
-        batch_size_train, batch_size_test, n_epochs = 16, 16, 200
+        batch_size_train, batch_size_test, n_epochs = 8, 8, 200
     else:
-        batch_size_train, batch_size_test, n_epochs = 4, 8, 100
+        batch_size_train, batch_size_test, n_epochs = 4, 4, 100
 
     model = train(
         preprocessor,
@@ -58,3 +61,5 @@ for i, patch_size in enumerate((256, 512, 1024)):
         batch_size_train=batch_size_train,
         batch_size_test=batch_size_test,
     )
+
+    torch.cuda.empty_cache()

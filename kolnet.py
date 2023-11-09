@@ -196,6 +196,8 @@ class Kolnet(L.LightningModule):
         for metric_name, metric_fn in self.metrics.items():
             with torch.no_grad():
                 metric_value = metric_fn(prediction, y)
+                if isinstance(metric_value, tuple):
+                    metric_value = metric_value[0]
             self.log(f"{prefix}/{metric_name}", metric_value, prog_bar=True)
         return loss
 
