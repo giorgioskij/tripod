@@ -429,7 +429,7 @@ def train(
     d = TripodDataModule(sample_target_generator=preprocessor,
                          batch_size_train=batch_size_train,
                          batch_size_test=batch_size_test)
-    trainer.fit(model=m, datamodule=d)
+    trainer.fit(model=m, datamodule=d, ckpt_path="last")
 
     wandb.finish()
 
