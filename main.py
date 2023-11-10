@@ -251,7 +251,7 @@ def setup_trainer(
         dirpath=output_dir,
         save_top_k=2,
         monitor="valid/global_loss",
-        filename="{epoch}-{valid_loss:.3f}",
+        filename="{epoch}-{valid/global_loss:.3f}",
         save_last=True,
     )
     int_ckp = OnExceptionCheckpoint(

@@ -1,9 +1,9 @@
 """ 
-    Train full model on patches of 512 pixels 
+    Train full model on patches of 1024 pixels 
 
     No alpha, and ssim only as a metric, use perceptual loss + mse to train
 
-    Training 2023-11-10 09:33
+    Training 2023-11-10 16:53
 """
 
 import script_config
@@ -34,14 +34,14 @@ model_args = {
     "double_image_size": False,
     "metrics": metrics,
 }
-patch_size: int = 512
+patch_size: int = 1024
 preprocessor = preprocessing.Unsharpen(patch_size=patch_size,
                                        max_amount=0.15,
                                        flip=True,
                                        rotate=True,
                                        add_alpha_channel=False)
 
-batch_size_train, batch_size_test, n_epochs = 8, 8, 400
+batch_size_train, batch_size_test, n_epochs = 4, 8, 400
 
 train(
     preprocessor,
