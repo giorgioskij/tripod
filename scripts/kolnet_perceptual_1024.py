@@ -5,6 +5,9 @@
 
     Training 2023-11-10 16:53
 """
+import os
+
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 
 import script_config
 import config as cfg
@@ -41,7 +44,7 @@ preprocessor = preprocessing.Unsharpen(patch_size=patch_size,
                                        rotate=True,
                                        add_alpha_channel=False)
 
-batch_size_train, batch_size_test, n_epochs = 4, 8, 400
+batch_size_train, batch_size_test, n_epochs = 4, 4, 400
 
 train(
     preprocessor,
