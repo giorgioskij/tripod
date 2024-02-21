@@ -198,13 +198,6 @@ class SaveImages(Callback):
                     row.append(wandb.Image(image))
                 data.append(row)
 
-                # img1, img2, img3 = (tensor_to_image(sample),
-                #                     tensor_to_image(output),
-                #                     tensor_to_image(target))
-                # ax[0, i].imshow(img1)
-                # ax[1, i].imshow(img2)
-                # ax[2, i].imshow(img3)
-
             plt.savefig(save_path)
             plt.close()
 

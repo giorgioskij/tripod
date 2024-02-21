@@ -4,6 +4,7 @@
     No alpha, and ssim only as a metric, use perceptual loss + mse to train
 
     Training 2023-11-10 16:53
+    Part 2:  2023-11-11 11:04
 """
 import os
 
@@ -48,7 +49,7 @@ batch_size_train, batch_size_test, n_epochs = 4, 4, 400
 
 train(
     preprocessor,
-    model_path=cfg.CKP_PATH / "kolnet_perceptual_512" / "last.ckpt",
+    model_path=cfg.CKP_PATH / "kolnet_perceptual_1024" / "last.ckpt",
     precision="32",
     model_args=model_args,
     n_epochs=n_epochs,

@@ -216,13 +216,13 @@ class Kolnet(L.LightningModule):
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def sharpen(self, image: Tensor, amount: float):
+    def sharpen(self, image: Tensor):  # , amount: float):
         if len(image.shape) != 3 or image.shape[0] != 3:
             raise ValueError("Give image as a single tensor of shape [3, W, H]"
                              f"\nReceived shape was {image.shape}")
 
-        alpha = torch.ones(image.shape[1:]).unsqueeze(0) * amount
-        image = torch.cat((image, alpha), dim=0)
+        # alpha = torch.ones(image.shape[1:]).unsqueeze(0) * amount
+        # image = torch.cat((image, alpha), dim=0)
 
         image = image.unsqueeze(0).to(list(self.parameters())[0].device)
 
