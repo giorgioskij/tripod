@@ -32,6 +32,9 @@ python scripts/demo.py <path to your image>
 The sharpened image should be saved in the same directory as the input one.
 
 ## Examples
+Here follow a few examples of comparing blurred input, sharpened output, and sharp original. 
+
+![epoch=399-step=80000](https://github.com/giorgioskij/tripod/assets/46194839/545585d6-4f0e-4614-b80e-44763f868447)
 ![original](https://github.com/giorgioskij/tripod/assets/46194839/2db4c026-4528-4349-9eef-1f64ab0c54e2)
 
 
