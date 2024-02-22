@@ -18,7 +18,7 @@ if not checkpoint_path.exists():
         "Can't find checkpoint locally: do you want to donwload it? [Y/n]: ")
     if ans.lower() in ["n", "no"]:
         sys.exit(1)
-    print("Dopwnloading checkpoint...")
+    print("Downloading checkpoint...")
 
     import gdown
 
@@ -36,6 +36,7 @@ if not image_path.exists():
 model: Kolnet = Kolnet.load_from_checkpoint(checkpoint_path).eval().cuda()
 image = to_tensor(Image.open(str(image_path)).convert("RGB"))
 
+print("Processing image...")
 with torch.no_grad():
     output = model.sharpen(image.to(model.device))
 
