@@ -32,11 +32,7 @@ python scripts/demo.py <path to your image>
 The sharpened image should be saved in the same directory as the input one.
 
 ## Examples
-![35output](https://github.com/giorgioskij/tripod/assets/46194839/96c1b0a1-28e6-42fb-b742-5060eb6d16e1)
-![35input](https://github.com/giorgioskij/tripod/assets/46194839/98d83dd9-0230-413f-aab3-56261919d231)
+![original](https://github.com/giorgioskij/tripod/assets/46194839/2db4c026-4528-4349-9eef-1f64ab0c54e2)
 
-
-![91output](https://github.com/giorgioskij/tripod/assets/46194839/e14429df-421f-4d1a-a448-5536bf8750cf)
-![91input](https://github.com/giorgioskij/tripod/assets/46194839/8be7be47-00cb-40ce-a7bd-0095f236ce7a)
 
 
