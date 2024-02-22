@@ -8,6 +8,7 @@ dependencies:
     - ipykernel
     - ipywidgets
     - lightning
+    - gdown
     - matplotlib
     - pandas
     - pytorch-msssim
