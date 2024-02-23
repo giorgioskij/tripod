@@ -16,6 +16,7 @@ import math
 import numpy as np
 
 from div2k import DIV2K
+from gopro import GoProTrainDataset, GoProValDataset
 
 plt.axis('off')
 
@@ -24,6 +25,7 @@ class Dataset(Enum):
     DIV2K = auto()
     MNIST = auto()
     FLOWERS = auto()
+    GOPRO = auto()
 
 
 class CustomMNIST(MNIST):
@@ -73,8 +75,6 @@ class TripodDataModule(L.LightningDataModule):
         # batch_size: Optional[int] = None,
         batch_size_train: int = 16,
         batch_size_test: int = 64,
-        sample_patch_size: int = 64,
-        target_patch_size: int = 128,
         sample_transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         common_transform: Optional[Callable] = None,
@@ -93,10 +93,6 @@ class TripodDataModule(L.LightningDataModule):
         """
 
         super().__init__()
-        self.sample_patch_size: Tuple[int, int] = (sample_patch_size,
-                                                   sample_patch_size)
-        self.target_patch_size: Tuple[int, int] = (target_patch_size,
-                                                   target_patch_size)
         self.data_dir: Path = data_dir
         self.batch_size_train: int = batch_size_train
         self.batch_size_test: int = batch_size_test
@@ -178,36 +174,6 @@ class TripodDataModule(L.LightningDataModule):
 
         elif self.dataset == Dataset.DIV2K:
 
-            # sample transforms
-            # sample_albumentations = []
-            # if self.downscale_factor > 1:
-            #     sample_t.append(
-            #         T.RandomCrop(self.sample_patch_size *
-            #                      self.downscale_factor))
-            #     sample_t.append(T.Resize(self.sample_patch_size))
-            # if self.unsharpen:
-            #     sample_t.append(T.RandomAdjustSharpness(sharpness_factor=0))
-            # if self.gaussian_blur:
-            #     sample_t.append(T.GaussianBlur(5, sigma=(1, 3)))
-            # sample_transform = T.Compose([*sample_t, T.ToTensor()])
-
-            # # target transforms
-
-            # if self.sample_patch_size == self.target_patch_size:
-            #     sample_transform = T.Compose([
-            #         *sample_transform,
-            #         T.Resize((self.sample_patch_size[0] // 2,
-            #                   self.sample_patch_size[1] // 2)),
-            #         T.Resize(self.sample_patch_size),
-            #         T.ToTensor(),
-            #     ])
-            # else:
-            #     sample_transform = T.Compose([
-            #         *sample_transform,
-            #         T.Resize(self.sample_patch_size),
-            #         T.ToTensor(),
-            #     ])
-            # target_transform = T.ToTensor()
             self.train = DIV2K(
                 root_dir=self.data_dir,
                 train=True,
@@ -218,6 +184,12 @@ class TripodDataModule(L.LightningDataModule):
                 train=False,
                 sample_target_generator=self.sample_target_generator,
                 download=True)
+
+        elif self.dataset == Dataset.GOPRO:
+            self.train = GoProTrainDataset(self.data_dir / "GoPro" / "train",
+                                           patch_size=256)
+            self.val = GoProValDataset(self.data_dir / "GoPro" / "test",
+                                       patch_size=256)
 
         # loaders for demo
         self.trainset_iter = iter(self.train)
@@ -363,3 +335,10 @@ def show(b: Tuple | List | Tensor,
 # it = iter(dl)
 # b = next(it)
 # show(b)
+if __name__ == "__main__":
+    ...
+    # d = TripodDataModule(dataset=Dataset.GOPRO)
+    # d.setup()
+    # dl = d.train_dataloader()
+
+    # print(next(iter(dl)))

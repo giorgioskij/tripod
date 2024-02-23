@@ -391,7 +391,8 @@ if __name__ == "__main__":
 
 
 def train(
-    preprocessor: Callable,
+    preprocessor: Optional[Callable] = None,
+    dataset: Dataset = Dataset.DIV2K,
     model_path: Optional[Path] = None,
     model_args: Optional[Dict] = None,
     model: Optional[Kolnet] = None,
@@ -410,7 +411,8 @@ def train(
     elif model_args is not None:
         m = Kolnet(**model_args)
     else:
-        raise ValueError("Either model args or model path must be specified")
+        raise ValueError(
+            "Either model, model args or model path must be specified")
 
     if unfreeze_model:
         for p in m.parameters():
@@ -419,7 +421,8 @@ def train(
     trainer = setup_trainer(n_epochs=n_epochs,
                             run_name=run_name,
                             precision=precision)
-    d = TripodDataModule(sample_target_generator=preprocessor,
+    d = TripodDataModule(dataset=dataset,
+                         sample_target_generator=preprocessor,
                          batch_size_train=batch_size_train,
                          batch_size_test=batch_size_test)
     trainer.fit(model=m, datamodule=d, ckpt_path="last")
