@@ -137,7 +137,7 @@ class GoProTrainDataset(Dataset):
         clean = getattr(augment, apply_trans)(clean)
         noisy = getattr(augment, apply_trans)(noisy)
 
-        return noisy, clean, noisy_filename, clean_filename
+        return noisy, clean  # , noisy_filename, clean_filename
 
 
 class GoProValDataset(Dataset):
