@@ -399,6 +399,7 @@ def train(
     precision: str = "32",
     n_epochs: int = 1,
     run_name: Optional[str] = None,
+    patch_size: Optional[int] = None,
     unfreeze_model: bool = False,
     batch_size_train: int = 16,
     batch_size_test: int = 64,
@@ -422,6 +423,7 @@ def train(
                             run_name=run_name,
                             precision=precision)
     d = TripodDataModule(dataset=dataset,
+                         patch_size=patch_size,
                          sample_target_generator=preprocessor,
                          batch_size_train=batch_size_train,
                          batch_size_test=batch_size_test)

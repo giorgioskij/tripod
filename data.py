@@ -72,6 +72,7 @@ class TripodDataModule(L.LightningDataModule):
         self,
         dataset: Dataset = Dataset.DIV2K,
         data_dir: Path = Path("./datasets"),
+        patch_size: Optional[int] = None,
         # batch_size: Optional[int] = None,
         batch_size_train: int = 16,
         batch_size_test: int = 64,
@@ -93,6 +94,7 @@ class TripodDataModule(L.LightningDataModule):
         """
 
         super().__init__()
+        self.patch_size: Optional[int] = patch_size
         self.data_dir: Path = data_dir
         self.batch_size_train: int = batch_size_train
         self.batch_size_test: int = batch_size_test
@@ -187,9 +189,9 @@ class TripodDataModule(L.LightningDataModule):
 
         elif self.dataset == Dataset.GOPRO:
             self.train = GoProTrainDataset(self.data_dir / "GoPro" / "train",
-                                           patch_size=256)
+                                           patch_size=self.patch_size or 256)
             self.val = GoProValDataset(self.data_dir / "GoPro" / "test",
-                                       patch_size=256)
+                                       patch_size=self.patch_size or 256)
 
         # loaders for demo
         self.trainset_iter = iter(self.train)

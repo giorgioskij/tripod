@@ -1,10 +1,12 @@
 """
-    Train decoder only on GoPro dataset on patches of 256 pixels.
-    400 epochs, perceptual loss, no alpha channel, static learning rate 3e-5
+    STEP 3:
+    Train encoder-decoder on GoPro dataset on patches of 1024 pixels.
+    100 epochs, perceptual loss, no alpha channel, static learning rate 3e-5
 
-    Training 2024-02-23 18:17
+    Training:  TBD
 """
 
+from gc import unfreeze
 import os
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
@@ -27,7 +29,7 @@ loss_fn = perceptual
 model_args = {
     "loss_fn": loss_fn,
     "learning_rate": 3e-5,
-    "freeze_encoder": True,
+    "freeze_encoder": False,
     "use_espcn": True,
     "use_espcn_activations": True,
     "avoid_deconv": True,
@@ -35,11 +37,13 @@ model_args = {
     "double_image_size": False,
     "metrics": metrics,
 }
-patch_size: int = 256
 
-batch_size_train, batch_size_test, n_epochs = 16, 16, 400
+batch_size_train, batch_size_test, n_epochs = 4, 4, 100
+patch_size: int = 1024
 
 train(run_name="kolnet_v2_gopro",
+      unfreeze_model=True,
+      patch_size=patch_size,
       dataset=Dataset.GOPRO,
       model_args=model_args,
       n_epochs=n_epochs,
