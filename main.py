@@ -220,6 +220,7 @@ class SaveImages(Callback):
 
 
 def setup_trainer(
+        wandb_id: Optional[str] = None,
         n_epochs: int = 1,
         save_images_every: int = 10,
         log_images_every: int = 50,
@@ -229,7 +230,8 @@ def setup_trainer(
 
     output_dir: Path = Path("checkpoints") / (run_name or "unnamed_run")
 
-    logger = (loggers.WandbLogger(project="tripod", name=run_name)
+    logger = (loggers.WandbLogger(
+        project="tripod", name=run_name, resume="allow", id=wandb_id)
               if run_name else False)
 
     # if ckp_path is None and run_name is None:
@@ -399,6 +401,7 @@ def train(
     precision: str = "32",
     n_epochs: int = 1,
     run_name: Optional[str] = None,
+    wandb_id: Optional[str] = None,
     patch_size: Optional[int] = None,
     unfreeze_model: bool = False,
     batch_size_train: int = 16,
@@ -408,7 +411,7 @@ def train(
     if model is not None:
         m = model
     elif model_path is not None:
-        m = Kolnet.load_from_checkpoint(model_path)
+        m = Kolnet.load_from_checkpoint(model_path, strict=False)
     elif model_args is not None:
         m = Kolnet(**model_args)
     else:
@@ -420,6 +423,7 @@ def train(
             p.requires_grad = True
 
     trainer = setup_trainer(n_epochs=n_epochs,
+                            wandb_id=wandb_id,
                             run_name=run_name,
                             precision=precision)
     d = TripodDataModule(dataset=dataset,

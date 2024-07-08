@@ -6,7 +6,6 @@
     Training:  TBD
 """
 
-from gc import unfreeze
 import os
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
@@ -38,10 +37,11 @@ model_args = {
     "metrics": metrics,
 }
 
-batch_size_train, batch_size_test, n_epochs = 8, 8, 200
+batch_size_train, batch_size_test, n_epochs = 8, 8, 400
 patch_size: int = 512
 
-train(run_name="kolnet_v2_gopro",
+train(run_name="kolnet_v2_gopro_512",
+      model_path=cfg.CKP_PATH / "kolnet_v2_gopro_256" / "last.ckpt",
       unfreeze_model=True,
       patch_size=patch_size,
       dataset=Dataset.GOPRO,

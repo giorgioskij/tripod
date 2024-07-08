@@ -26,6 +26,9 @@ class PerceptualLoss(nn.Module):
             weights=models.VGG16_Weights.IMAGENET1K_FEATURES).features
         self.vgg.eval()
 
+        for p in self.vgg.parameters():
+            p.requires_grad = False
+
     def forward(self, X: Tensor, Y: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
 
         # VGG perceptual loss
